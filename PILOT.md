@@ -97,15 +97,36 @@ wrong thing.
 
 ### 2.5 Cron
 
-Two jobs, already declared in `vercel.json`:
+Two jobs, but they can't both run as native Vercel Cron on the free **Hobby**
+plan — Hobby caps every cron job at once per day, and reminders need to fire
+every 5–15 minutes to be useful. Split them:
 
-| Path | Schedule | What breaks without it |
-|---|---|---|
-| `/api/cron/generate-sessions` | daily, 02:00 UTC | Classes stop appearing ~60 days out. No error — the site just empties. |
-| `/api/cron/send-reminders` | every 10 minutes | No class reminders. |
+| Path | Schedule | Runs via | What breaks without it |
+|---|---|---|---|
+| `/api/cron/generate-sessions` | daily, 02:00 UTC | Vercel Cron (declared in `vercel.json`) | Classes stop appearing ~60 days out. No error — the site just empties. |
+| `/api/cron/send-reminders` | every 5–15 min | an external scheduler (see below) | No class reminders. |
 
-Vercel sends `Authorization: Bearer $CRON_SECRET` automatically once
-`CRON_SECRET` is set, so no extra configuration is needed.
+Vercel sends `Authorization: Bearer $CRON_SECRET` automatically for the job
+declared in `vercel.json`, so `generate-sessions` needs no extra setup.
+
+**`send-reminders` needs an external pinger**, since it must run more often
+than Hobby allows. The endpoint doesn't care who calls it or how often — it's
+safe to hit as often as you like, since a class is only ever reminded once
+(see `src/lib/reminders.ts`). The only requirement is the `Authorization`
+header carrying `CRON_SECRET`.
+
+Easiest free option, [cron-job.org](https://cron-job.org):
+
+1. Sign up (free).
+2. Create a new cron job:
+   - URL: `https://your-domain/api/cron/send-reminders`
+   - Schedule: every 10 minutes
+   - Under "Advanced" → Headers, add: `Authorization: Bearer <your CRON_SECRET>`
+3. Save and enable it.
+
+(If you later upgrade to Vercel Pro, you can move `send-reminders` back into
+`vercel.json` with a `*/10 * * * *` schedule instead, and drop the external
+service.)
 
 Verify after deploy:
 
