@@ -257,19 +257,22 @@ export async function recordOfflinePayment(args: {
   });
   if (!plan) return { ok: false, error: "Plan not found." };
 
-  // Recording the same cash payment twice (a double-click, or an instructor
-  // who forgot they'd already logged it) would silently hand out a second
-  // pass and double the credits. One active pass per student per class is the
-  // rule; topping up an existing pass is a separate, deliberate action.
+  // A student who already has an active pass for this class is either being
+  // double-charged (a double-click, or an instructor who forgot they'd
+  // already logged it) or is legitimately topping up a pass that's run low
+  // or out of sessions — recording a second cash payment is exactly how that
+  // happens in the real world. Credit-based passes top up in place; anything
+  // else (an unlimited/time-based pass that's still active) is still
+  // rejected, since there's nothing sensible to add to it.
   const active = await db.query.enrollments.findFirst({
     where: and(
       eq(enrollments.studentId, args.studentId),
       eq(enrollments.offeringId, args.offeringId),
       eq(enrollments.status, EnrollmentStatus.ACTIVE),
     ),
-    columns: { id: true },
   });
-  if (active) {
+
+  if (active && active.sessionsRemaining === null) {
     return {
       ok: false,
       error:
@@ -278,26 +281,50 @@ export async function recordOfflinePayment(args: {
   }
 
   const startedAt = new Date();
-  const [enrollment] = await db
-    .insert(enrollments)
-    .values({
-      studentId: args.studentId,
-      offeringId: args.offeringId,
-      instructorId: args.instructorId,
-      planId: plan.id,
-      status: EnrollmentStatus.ACTIVE,
-      sessionsRemaining: plan.sessionsIncluded,
-      startedAt,
-      expiresAt: plan.validityDays ? addDays(startedAt, plan.validityDays) : null,
-    })
-    .returning();
+  let enrollmentId: string;
+
+  if (active) {
+    // Top up in place rather than creating a second pass — same enrolment,
+    // more credits, expiry pushed out if this plan reaches further than the
+    // one already on file.
+    const addedSessions = plan.sessionsIncluded ?? 0;
+    const candidateExpiry = plan.validityDays ? addDays(startedAt, plan.validityDays) : null;
+    const nextExpiresAt =
+      candidateExpiry && (!active.expiresAt || candidateExpiry > active.expiresAt)
+        ? candidateExpiry
+        : active.expiresAt;
+
+    await db
+      .update(enrollments)
+      .set({
+        sessionsRemaining: (active.sessionsRemaining ?? 0) + addedSessions,
+        expiresAt: nextExpiresAt,
+      })
+      .where(eq(enrollments.id, active.id));
+    enrollmentId = active.id;
+  } else {
+    const [enrollment] = await db
+      .insert(enrollments)
+      .values({
+        studentId: args.studentId,
+        offeringId: args.offeringId,
+        instructorId: args.instructorId,
+        planId: plan.id,
+        status: EnrollmentStatus.ACTIVE,
+        sessionsRemaining: plan.sessionsIncluded,
+        startedAt,
+        expiresAt: plan.validityDays ? addDays(startedAt, plan.validityDays) : null,
+      })
+      .returning();
+    enrollmentId = enrollment.id;
+  }
 
   const [payment] = await db
     .insert(payments)
     .values({
       studentId: args.studentId,
       instructorId: args.instructorId,
-      enrollmentId: enrollment.id,
+      enrollmentId,
       invoiceNo: generateInvoiceNo(),
       description: `${plan.offering.title} — ${plan.name}${args.note ? ` (${args.note})` : ""}`,
       amountPaise: args.amountPaise,
@@ -317,7 +344,7 @@ export async function recordOfflinePayment(args: {
     email: true,
   });
 
-  return { ok: true, paymentId: payment.id, enrollmentId: enrollment.id };
+  return { ok: true, paymentId: payment.id, enrollmentId };
 }
 
 /**
