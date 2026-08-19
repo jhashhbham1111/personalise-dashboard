@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+/**
+ * Personalise design tokens.
+ *
+ * Warm neutral paper + a deep evergreen accent: calm enough for a yoga studio,
+ * neutral enough for a guitar teacher or a coding tutor. Rebranding means
+ * editing the --brand ramp below and nothing else.
+ */
+
+@theme {
+  --color-paper: #fbfaf7;
+  --color-surface: #ffffff;
+  --color-ink: #16211d;
+  --color-ink-soft: #55635d;
+  --color-ink-faint: #8a968f;
+  --color-line: #e6e3dc;
+  --color-line-strong: #d5d1c7;
+
+  --color-brand-50: #eef6f2;
+  --color-brand-100: #d6ebe1;
+  --color-brand-200: #aed7c4;
+  --color-brand-300: #7dbca2;
+  --color-brand-400: #4f9d80;
+  --color-brand-500: #2f7f64;
+  --color-brand-600: #1f6650;
+  --color-brand-700: #1a5241;
+  --color-brand-800: #164235;
+  --color-brand-900: #12352b;
+
+  --color-accent-100: #fdeee0;
+  --color-accent-300: #f6c795;
+  --color-accent-500: #e08c3a;
+  --color-accent-700: #a9601c;
+
+  --color-danger-100: #fde8e5;
+  --color-danger-500: #cf4a37;
+  --color-danger-700: #99301f;
+
+  --color-info-100: #e6effa;
+  --color-info-500: #3d76c4;
+  --color-info-700: #27508a;
+
+  --radius-card: 0.875rem;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+}
+
+* {
+  border-color: var(--color-line);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Focus ring — one consistent treatment everywhere, keyboard users only. */
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+
+/* Section headings inherit tighter tracking without per-component classes. */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.015em;
+}
+
+/* Hide the number input spinners — every numeric field here is a price or count
+   where the arrows are noise. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.28s ease-out both;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
