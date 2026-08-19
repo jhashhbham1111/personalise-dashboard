@@ -29,9 +29,15 @@ export function expandRuleOccurrences(
   const days = new Set(parseList<number>(rule.daysOfWeek));
   if (days.size === 0) return [];
 
+  // `endDate` is stored as local midnight of the stop day (see
+  // fromDateInput), so a class later that same day must still be included —
+  // "stop after 19 Aug" means through the end of the 19th, not before it
+  // starts. The real boundary is the start of the *following* day.
+  const endBoundary = rule.endDate ? addDays(rule.endDate, 1) : null;
+
   const windowStart = new Date(Math.max(from.getTime(), rule.startDate.getTime()));
-  const windowEnd = rule.endDate
-    ? new Date(Math.min(until.getTime(), rule.endDate.getTime()))
+  const windowEnd = endBoundary
+    ? new Date(Math.min(until.getTime(), endBoundary.getTime()))
     : until;
   if (windowStart > windowEnd) return [];
 
@@ -57,9 +63,9 @@ export function expandRuleOccurrences(
       if (
         !seen.has(t) &&
         startsAt >= windowStart &&
-        startsAt <= windowEnd &&
+        startsAt < windowEnd &&
         startsAt >= rule.startDate &&
-        (!rule.endDate || startsAt <= rule.endDate)
+        (!endBoundary || startsAt < endBoundary)
       ) {
         seen.add(t);
         out.push(startsAt);
