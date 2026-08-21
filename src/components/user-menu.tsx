@@ -90,7 +90,18 @@ export function UserMenu({
             })}
 
             <DropdownMenu.Separator className="my-1 h-px bg-line" />
-            <DropdownMenu.Item asChild>
+            {/*
+              Radix closes (unmounts) the dropdown as soon as an Item is
+              selected, which happens synchronously on pointerup/click —
+              before the browser dispatches the <form>'s "submit" event. That
+              race detaches the form from the document mid-submission, so the
+              browser cancels it outright ("Form submission canceled because
+              the form is not connected") and logoutAction never runs.
+              preventDefault in onSelect stops Radix's auto-close; the
+              redirect inside logoutAction navigates away and takes the menu
+              with it, so we don't need to close it ourselves.
+            */}
+            <DropdownMenu.Item asChild onSelect={(e) => e.preventDefault()}>
               <form action={logoutAction}>
                 <button
                   type="submit"
