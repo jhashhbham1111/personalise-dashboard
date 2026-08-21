@@ -4,15 +4,17 @@ import { useEffect, useRef, useState } from "react";
 
 import type { LiveEngineController, LiveRoomState, SimPeer } from "./types";
 
+type LiveGrant = {
+  provider: "mock" | "livekit" | "jitsi";
+  roomName: string;
+  token: string;
+  serverUrl: string | null;
+  identity: string;
+  isHost: boolean;
+};
+
 type TokenResponse = {
-  grant: {
-    provider: "mock" | "livekit";
-    roomName: string;
-    token: string;
-    serverUrl: string | null;
-    identity: string;
-    isHost: boolean;
-  };
+  grant: LiveGrant;
   isHost: boolean;
   viewerName: string;
   session: { id: string; title: string; startsAt: string; endsAt: string; isRecording: boolean };
@@ -35,6 +37,11 @@ export function useLiveRoom(opts: { sessionId: string; peers: SimPeer[] }) {
   const [state, setState] = useState<LiveRoomState>(EMPTY_STATE);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [controller, setController] = useState<LiveEngineController | null>(null);
+  // Jitsi has no `LiveEngineController` — it owns its own full meeting UI
+  // (see jitsi-room-view.tsx) rather than driving room.tsx's video grid, so
+  // it only needs the grant itself, not an engine.
+  const [grant, setGrant] = useState<LiveGrant | null>(null);
+  const [viewerName, setViewerName] = useState("");
   // Mirrors `controller` for the effect cleanup, which must never read state
   // set by a later, possibly-stale render.
   const controllerRef = useRef<LiveEngineController | null>(null);
@@ -61,6 +68,17 @@ export function useLiveRoom(opts: { sessionId: string; peers: SimPeer[] }) {
         return;
       }
       if (cancelled) return;
+
+      setGrant(data.grant);
+      setViewerName(data.viewerName);
+
+      if (data.grant.provider === "jitsi") {
+        // The Jitsi embed connects itself, inside its own iframe — there's
+        // no engine to boot here, just the grant for jitsi-room-view.tsx to
+        // use directly.
+        setState({ status: "connected", participants: [], chat: [], isRecording: false });
+        return;
+      }
 
       const onUpdate = (s: LiveRoomState) => {
         if (!cancelled) setState(s);
@@ -103,5 +121,5 @@ export function useLiveRoom(opts: { sessionId: string; peers: SimPeer[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opts.sessionId]);
 
-  return { state, controller, tokenError };
+  return { state, controller, tokenError, grant, viewerName };
 }

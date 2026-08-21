@@ -95,6 +95,18 @@ specific problem printed in the deployment log. That's deliberate: every one of
 these previously produced a deploy that came up healthy and quietly did the
 wrong thing.
 
+**Live video is also off by default** (`LIVE_PROVIDER` unset ⇒ mock — instructor
+and student never actually see each other). Add one variable to turn on real
+video for free:
+
+| Variable | Value | Why |
+|---|---|---|
+| `LIVE_PROVIDER` | `jitsi` | Turns on real video via Jitsi's free public server |
+
+Nothing else is required — `meet.jit.si` needs no account or keys. See §2.7 for
+what this mode can and can't do, and how to move to LiveKit or a self-hosted
+Jitsi later if you outgrow it.
+
 ### 2.5 Cron
 
 Two jobs, but they can't both run as native Vercel Cron on the free **Hobby**
@@ -141,6 +153,36 @@ Resend needs your sending domain verified (a few DNS records) before it will
 deliver. Until then every send is rejected. Failures now appear in the runtime
 logs prefixed `[notify]` — check there first if someone says they got no
 reminder.
+
+### 2.7 Live video — Jitsi (free)
+
+Set `LIVE_PROVIDER=jitsi` and redeploy. That's the whole setup — `meet.jit.si`
+is Jitsi's own public server, so there's no account to create and no keys to
+add.
+
+**What changes for the class room.** Every other provider (`mock`, `livekit`)
+renders this app's own video grid and controls. Jitsi is different: joining a
+class opens Jitsi's own complete meeting UI in an embedded frame — its video
+tiles, mute/camera, screen share, chat, raise hand and participant list, not
+this app's. This app still wraps it with the class title and, for the host, an
+"End class" button, and still does its own booking/host check before anyone
+gets in — that part doesn't change.
+
+**Who's the moderator.** Jitsi gives moderator controls (mute another
+person, remove someone) to whoever joins the room first. In practice that's
+the instructor, since they're the one who opens the class — no setup needed,
+just worth knowing if a student somehow joins before the instructor does.
+
+**What this mode can't do.** No recording — meet.jit.si only offers recording
+through a Dropbox connection per meeting, not the automatic "lands in your
+media library" flow LiveKit gives you, so the record button doesn't appear in
+Jitsi mode. And there's a real security tradeoff worth knowing: meet.jit.si
+has no login, so access control is entirely "nobody outside your app can guess
+the room's name" (it's derived from `AUTH_SECRET`, not the class ID, so it
+isn't guessable) rather than an actual credential check. Good enough for a
+pilot; if that ever isn't good enough, self-hosting Jitsi with JWT auth or
+moving to `LIVE_PROVIDER=livekit` both close that gap — ask and it can be set
+up.
 
 ---
 
@@ -236,7 +278,7 @@ Be upfront about these — pilot users forgive known limits and resent surprises
 | Gap | Impact | Workaround for now |
 |---|---|---|
 | No image upload | Instructor pages and class cards have no photos | Set expectations; it's the top thing to build next |
-| Live video is simulated | Instructor and student can't actually see each other in class | Set `LIVE_PROVIDER=livekit` with real keys, or run the class on your usual video app for now |
+| Live video is simulated by default | Instructor and student can't actually see each other in class | Set `LIVE_PROVIDER=jitsi` — free, no keys needed (see §2.7). Move to `LIVE_PROVIDER=livekit` later if you need in-app recording or tighter access control |
 | No in-app messaging | Students can't ask questions before booking | Keep WhatsApp for conversation |
 | Reviews are display-only | Ratings stay at zero | Collect feedback out of band |
 | No refunds in-app | Instructor hands money back manually | Void the payment in Studio → Fees, then return the money directly |

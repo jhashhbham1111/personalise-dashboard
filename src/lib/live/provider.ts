@@ -16,17 +16,21 @@ export type RoomIdentity = {
 };
 
 export type LiveGrant = {
-  provider: "mock" | "livekit";
+  provider: "mock" | "livekit" | "jitsi";
   roomName: string;
   token: string;
-  /** WebSocket URL for the media server. Null for the mock provider. */
+  /**
+   * For LiveKit, the WebSocket URL of the media server. For Jitsi, the plain
+   * domain (e.g. "meet.jit.si") the client embed connects to. Null for the
+   * mock provider.
+   */
   serverUrl: string | null;
   identity: string;
   isHost: boolean;
 };
 
 export interface LiveProvider {
-  readonly name: "mock" | "livekit";
+  readonly name: "mock" | "livekit" | "jitsi";
   /** Idempotent — returns the existing room if it already exists. */
   ensureRoom(roomName: string, opts?: { maxParticipants?: number }): Promise<void>;
   issueToken(roomName: string, who: RoomIdentity): Promise<LiveGrant>;

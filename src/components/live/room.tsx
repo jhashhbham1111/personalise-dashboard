@@ -26,6 +26,7 @@ import { cn, initials } from "@/lib/utils";
 import { ButtonLink } from "@/components/ui/button";
 import { ParticipantTile } from "./participant-tile";
 import { ControlButton } from "./control-button";
+import { JitsiRoomView } from "./jitsi-room-view";
 import { useLiveRoom } from "./use-live-room";
 import type { SimPeer } from "./types";
 
@@ -53,7 +54,7 @@ export function LiveRoom({
   backHref: string;
 }) {
   const router = useRouter();
-  const { state, controller, tokenError } = useLiveRoom({ sessionId, peers });
+  const { state, controller, tokenError, grant, viewerName } = useLiveRoom({ sessionId, peers });
   const [panel, setPanel] = useState<"chat" | "people" | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -123,6 +124,20 @@ export function LiveRoom({
           <p className="text-sm text-white/70">Setting up your camera and mic…</p>
         </div>
       </div>
+    );
+  }
+
+  if (grant?.provider === "jitsi" && grant.serverUrl) {
+    return (
+      <JitsiRoomView
+        sessionId={sessionId}
+        title={title}
+        isHost={isHost}
+        backHref={backHref}
+        domain={grant.serverUrl}
+        roomName={grant.roomName}
+        viewerName={viewerName}
+      />
     );
   }
 

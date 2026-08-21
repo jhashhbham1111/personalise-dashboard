@@ -22,12 +22,17 @@ export const env = {
     // assertProviderConfig() refuses to boot production with this value.
     "dev-only-insecure-secret-change-me-in-production-0000",
 
-  /** mock | livekit */
-  liveProvider: (optional("LIVE_PROVIDER") || "mock") as "mock" | "livekit",
+  /** mock | livekit | jitsi */
+  liveProvider: (optional("LIVE_PROVIDER") || "mock") as "mock" | "livekit" | "jitsi",
   livekit: {
     url: optional("LIVEKIT_URL"),
     apiKey: optional("LIVEKIT_API_KEY"),
     apiSecret: optional("LIVEKIT_API_SECRET"),
+  },
+  jitsi: {
+    // meet.jit.si is Jitsi's own free public server — no account, no keys.
+    // Point JITSI_DOMAIN at a self-hosted server instead if you ever run one.
+    domain: optional("JITSI_DOMAIN") || "meet.jit.si",
   },
 
   /** mock | razorpay */
