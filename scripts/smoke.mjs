@@ -262,15 +262,21 @@ try {
   await page.fill('input[name="capacity"]', "3");
   await shot("20-studio-new-class");
   await page.getByRole("button", { name: /create class/i }).click();
-  // "**/studio/offerings/**" would match the /new page we're already on, so wait
-  // for the editor URL specifically.
-  await page.waitForURL(/\/studio\/offerings\/[^/]+\?created=1/, { timeout: 20000 });
+  // Creating a class now lands on its setup page rather than the edit form —
+  // a new class needs a price and a time before it's worth anything, and the
+  // edit page hid both.
+  await page.waitForURL(/\/studio\/offerings\/[^/]+\/setup/, { timeout: 20000 });
   check(
     "instructor can create a class",
     (await page.locator(`text=${className}`).count()) > 0,
   );
+  check(
+    "class setup asks for a price straight away",
+    (await page.locator("text=/what does it cost/i").count()) > 0,
+  );
 
-  const offeringUrl = page.url().split("?")[0];
+  const setupUrl = page.url().split("?")[0];
+  const offeringUrl = setupUrl.replace(/\/setup$/, "");
 
   /* -- add a pass ------------------------------------------------------- */
   await page.getByRole("button", { name: /^Add$/ }).first().click();
@@ -279,12 +285,16 @@ try {
   await page.fill('input[name="amount"]', "500");
   await page.getByRole("button", { name: /^Add pass$/i }).click();
   await page.waitForTimeout(3000);
-  await page.goto(offeringUrl, { waitUntil: "domcontentloaded" });
+  await page.goto(setupUrl, { waitUntil: "domcontentloaded" });
   check(
     "instructor can add a pricing plan",
     (await page.locator("text=Smoke drop-in").count()) > 0,
   );
-  await shot("21-studio-offering-editor");
+  check(
+    "setup offers the schedule step once a price exists",
+    (await page.locator("text=/set a class time/i").count()) > 0,
+  );
+  await shot("21-studio-offering-setup");
 
   /* -- schedule it ------------------------------------------------------ */
   await page.goto(`${BASE}/studio/schedule`, { waitUntil: "domcontentloaded" });

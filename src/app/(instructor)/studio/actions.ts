@@ -14,16 +14,26 @@ import {
   posts,
   pricingPlans,
   scheduleRules,
+  users,
   venues,
   videoAssets,
 } from "@/db";
 import { requireInstructor } from "@/lib/auth";
 import { cancelBooking } from "@/lib/booking";
-import { findStudentByEmail, recordOfflinePayment } from "@/lib/checkout";
+import {
+  findStudentByEmail,
+  recordAdHocPayment,
+  recordOfflinePayment,
+  searchStudents,
+  updateOfflinePayment,
+  voidOfflinePayment,
+} from "@/lib/checkout";
+import { generatePassCodes, revokePassCode } from "@/lib/pass-codes";
 import {
   Attendance,
   BookingStatus,
   NotificationType,
+  Role,
   SessionStatus,
 } from "@/lib/enums";
 import { notify } from "@/lib/notify";
@@ -209,7 +219,11 @@ export async function saveOfferingAction(
     .returning();
 
   revalidatePath("/studio/offerings");
-  redirect(`/studio/offerings/${created.id}?created=1`);
+  // Straight into setup rather than the edit page. A new class is useless
+  // until it has a price and a time, and the edit page buried both below a
+  // long form — instructors created a class, saw a warning they couldn't act
+  // on, and left it unsellable.
+  redirect(`/studio/offerings/${created.id}/setup`);
 }
 
 export async function deleteOfferingAction(
@@ -698,25 +712,85 @@ export async function removeBookingAction(
 
 /* ---------------------------------------------------------------- money */
 
+/** Typeahead for the record-a-payment dialog. */
+export async function searchStudentsAction(
+  query: string,
+): Promise<{ id: string; name: string; email: string; phone: string | null; known: boolean }[]> {
+  const user = await requireInstructor();
+  return searchStudents({ query, instructorId: user.instructorProfileId });
+}
+
 export async function recordOfflinePaymentAction(
   _prev: ActionState,
   form: FormData,
 ): Promise<ActionState> {
   const user = await requireInstructor();
 
-  const planId = str(form, "planId");
+  // The dialog resolves the person to an id before submitting, so the wrong
+  // student can't be enrolled by a name collision. The email fallback keeps
+  // the flow usable if the picker can't reach the server.
+  const studentId = str(form, "studentId");
   const email = str(form, "studentEmail");
   const amount = num(form, "amount");
+  const custom = str(form, "planId") === "__custom__";
 
-  if (!planId) return fail("Pick which pass they bought.");
-  if (!email) {
-    return fail("Enter the student's email address.", {
-      studentEmail: "Required.",
-    });
-  }
   if (amount <= 0) {
     return fail("Enter the amount you were paid.", { amount: "Required." });
   }
+
+  let student: { id: string; name: string } | null = null;
+  if (studentId) {
+    const row = await db.query.users.findFirst({
+      where: and(eq(users.id, studentId), eq(users.role, Role.STUDENT)),
+      columns: { id: true, name: true },
+    });
+    student = row ?? null;
+  } else if (email) {
+    student = await findStudentByEmail(email);
+  }
+
+  if (!student) {
+    return fail(
+      "Pick a student from the list. If they're not there they haven't signed up yet — send them your public page link first.",
+      { student: "No account found." },
+    );
+  }
+
+  if (custom) {
+    const label = str(form, "customLabel");
+    const offeringId = str(form, "customOfferingId");
+    if (!label) {
+      return fail("Give the pass a name.", { customLabel: "Required." });
+    }
+    if (!offeringId) {
+      return fail("Pick which class this pass is for.", {
+        customOfferingId: "Required.",
+      });
+    }
+    const rawSessions = str(form, "customSessions");
+    const rawValidity = str(form, "customValidity");
+
+    const result = await recordAdHocPayment({
+      studentId: student.id,
+      instructorId: user.instructorProfileId,
+      offeringId,
+      label,
+      amountPaise: rupeesToPaise(amount),
+      // Blank means unlimited within the validity window, matching how a
+      // monthly plan behaves.
+      sessionsIncluded: rawSessions ? Math.max(1, Number(rawSessions)) : null,
+      validityDays: rawValidity ? Math.max(1, Number(rawValidity)) : null,
+      note: str(form, "note") || undefined,
+    });
+    if (!result.ok) return fail(result.error);
+
+    revalidatePath("/studio/payments");
+    revalidatePath("/studio/students");
+    return ok(`Payment recorded — ${student.name}'s pass is active.`);
+  }
+
+  const planId = str(form, "planId");
+  if (!planId) return fail("Pick which pass they bought.");
 
   const plan = await db.query.pricingPlans.findFirst({
     where: eq(pricingPlans.id, planId),
@@ -724,14 +798,6 @@ export async function recordOfflinePaymentAction(
   });
   if (!plan || plan.offering.instructorId !== user.instructorProfileId) {
     return fail("That pass doesn't belong to you.");
-  }
-
-  const student = await findStudentByEmail(email);
-  if (!student) {
-    return fail(
-      "No student account with that email yet. Ask them to sign up at your public page first — it takes a minute — then record the payment.",
-      { studentEmail: "No account found." },
-    );
   }
 
   const result = await recordOfflinePayment({
@@ -747,6 +813,94 @@ export async function recordOfflinePaymentAction(
   revalidatePath("/studio/payments");
   revalidatePath("/studio/students");
   return ok(`Payment recorded — ${student.name}'s pass is active.`);
+}
+
+export async function updatePaymentAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  const user = await requireInstructor();
+  const amount = num(form, "amount");
+  if (amount <= 0) return fail("Enter an amount.", { amount: "Required." });
+
+  const paidAtRaw = str(form, "paidAt");
+  const paidAt = paidAtRaw
+    ? fromDateInput(paidAtRaw, user.timezone)
+    : new Date();
+
+  const result = await updateOfflinePayment({
+    paymentId: str(form, "paymentId"),
+    instructorId: user.instructorProfileId,
+    amountPaise: rupeesToPaise(amount),
+    note: str(form, "note"),
+    paidAt,
+  });
+  if (!result.ok) return fail(result.error);
+
+  revalidatePath("/studio/payments");
+  return ok("Payment updated.");
+}
+
+export async function voidPaymentAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  const user = await requireInstructor();
+
+  const result = await voidOfflinePayment({
+    paymentId: str(form, "paymentId"),
+    instructorId: user.instructorProfileId,
+  });
+  if (!result.ok) return fail(result.error);
+
+  revalidatePath("/studio/payments");
+  revalidatePath("/studio/students");
+  return ok("Payment voided and the pass adjusted.");
+}
+
+/* ------------------------------------------------------------ pass codes */
+
+export async function generatePassCodesAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  const user = await requireInstructor();
+
+  const planId = str(form, "planId");
+  if (!planId) return fail("Pick which pass these codes are for.");
+
+  const quantity = Math.max(1, num(form, "quantity", 1));
+  const expiryRaw = str(form, "expiresInDays");
+
+  const result = await generatePassCodes({
+    instructorId: user.instructorProfileId,
+    planId,
+    quantity,
+    expiresInDays: expiryRaw ? Number(expiryRaw) : null,
+    note: str(form, "note") || undefined,
+  });
+  if (!result.ok) return fail(result.error);
+
+  revalidatePath("/studio/codes");
+  return ok(
+    `${result.codes.length} code${result.codes.length === 1 ? "" : "s"} created.`,
+  );
+}
+
+export async function revokePassCodeAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  const user = await requireInstructor();
+
+  const result = await revokePassCode({
+    instructorId: user.instructorProfileId,
+    codeId: str(form, "codeId"),
+  });
+  if (!result.ok) return fail(result.error ?? "Couldn't revoke that code.");
+
+  revalidatePath("/studio/codes");
+  return ok("Code revoked.");
 }
 
 /* ---------------------------------------------------------------- media */

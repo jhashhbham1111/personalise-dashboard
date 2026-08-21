@@ -149,9 +149,12 @@ reminder.
 - [ ] `curl https://your-domain/api/health` returns `{"ok":true}`
 - [ ] Sign up as a test student, and check the confirmation email actually arrives
 - [ ] Create a test instructor, verify them in `/admin/instructors`
-- [ ] Record a cash payment against the test student, confirm the pass activates
+- [ ] Create a class and finish all three setup steps — details, price, schedule
+- [ ] Generate a pass code, redeem it as the student, confirm the pass activates
+- [ ] Record a cash payment by hand too, confirm it also activates
 - [ ] Book a class as the student, confirm the booking email arrives
 - [ ] Wait for a reminder (or temporarily move a class to ~50 minutes away)
+- [ ] Request a password reset and check the email arrives and the link works
 - [ ] Open the site on a phone and walk the whole flow again
 - [ ] Confirm `/checkout/anything` returns 404 (no accidental payment path)
 
@@ -172,19 +175,57 @@ yet, so their page will look plain. It's the most-noticed gap — see §6.
 
 ## 5. Enrolling a student (the money step)
 
+There are two routes. Both end with the same enrolment and the same row in the
+fees ledger — pick whichever fits how the money actually changed hands.
+
+### 5.1 Pass codes — the one that scales
+
+The instructor generates codes once and hands one over each time someone pays.
+The student activates it themselves, so the instructor never opens the app per
+student.
+
+1. **Studio → Pass codes → Create codes.** Pick the pass, a quantity, and
+   optionally an expiry. Print them, or copy them one at a time.
+2. Student pays the instructor directly.
+3. Instructor hands over a code (on paper, WhatsApp, however).
+4. Student signs in and opens **Dashboard → Redeem a code**, types it, sees
+   exactly what they're activating, and confirms.
+
+Each code works once. A code carries its own price and terms, so editing or
+retiring the underlying plan later never changes what an issued code is worth.
+A lost or mis-handed code can be revoked from the same page.
+
+This is the route to use once an instructor has more than a handful of
+students — recording every payment by hand does not survive a hundred people.
+
+### 5.2 Recording a payment by hand
+
+For a payment the instructor wants to log themselves.
+
 1. Student creates an account at your site (send them the instructor's public
    page link — `/i/their-slug`).
 2. Student pays the instructor directly, however they normally do.
-3. Instructor opens **Studio → Fees → Record a payment**, enters the student's
-   **email address**, picks the pass, confirms the amount, and saves.
+3. Instructor opens **Studio → Fees → Record a payment**, searches for the
+   student by **name, email or phone**, picks them from the list, chooses the
+   pass, confirms the amount, and saves.
 4. The pass activates immediately and the student can book.
 
-The student must have created an account first — the instructor is asked for an
-email, and the app matches it to an existing account. If it says "no account
-found", the student hasn't signed up yet.
+The student must have created an account first. The search only returns real
+accounts — if nobody comes up, they haven't signed up yet.
 
-One active pass per student per class. Recording a second payment for the same
-class is rejected rather than silently doubling their credits.
+**Passes that aren't on the price list.** Choose "Something else…" under *What
+did they buy?* to record a one-off arrangement — a family rate, a pack carried
+over from before — giving it a name, a class, a number of sessions and a
+validity.
+
+**Topping up.** Recording a second payment for a student who already has a
+credit-based pass for that class adds to it rather than creating a second one.
+That is how someone who has used up their classes buys more.
+
+**Fixing a mistake.** Every cash payment row has an edit and a void. Edit
+changes the amount, date and note; void reverses the payment and takes back the
+unspent part of the pass it granted. To change *what* someone bought, void and
+record it again.
 
 ---
 
@@ -195,12 +236,13 @@ Be upfront about these — pilot users forgive known limits and resent surprises
 | Gap | Impact | Workaround for now |
 |---|---|---|
 | No image upload | Instructor pages and class cards have no photos | Set expectations; it's the top thing to build next |
-| No password reset | A forgotten password locks the account out | You can reset it directly in the database; tell them to contact you |
+| Live video is simulated | Instructor and student can't actually see each other in class | Set `LIVE_PROVIDER=livekit` with real keys, or run the class on your usual video app for now |
 | No in-app messaging | Students can't ask questions before booking | Keep WhatsApp for conversation |
 | Reviews are display-only | Ratings stay at zero | Collect feedback out of band |
-| No refunds in-app | Instructor hands money back manually | Fine while money is offline |
+| No refunds in-app | Instructor hands money back manually | Void the payment in Studio → Fees, then return the money directly |
 | Public nav hidden on mobile | Phone visitors see only the logo on marketing pages | Send deep links (`/i/slug`) rather than the homepage |
-| Nothing paginates | Lists cap at 40–60 items | Not a pilot-scale problem |
+| Invoice numbers are random | GST requires sequential numbering | Fine while money is offline; must change before charging in-app |
+| Notifications are email only | Indian students often won't read email | Follow up on WhatsApp for anything time-critical |
 
 ---
 

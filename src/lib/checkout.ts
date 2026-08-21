@@ -375,3 +375,319 @@ export async function findStudentByEmail(
 
   return { id: row.id, name: row.name, email: row.email };
 }
+
+export type StudentMatch = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  /** True when this person has enrolled with the searching instructor before. */
+  known: boolean;
+};
+
+/**
+ * Find a student by name, email or phone.
+ *
+ * Typing an exact email address is the thing an instructor is least able to do
+ * with a queue in front of them — they know the person's name and probably
+ * their number. Matching on all three and returning candidates to choose from
+ * keeps that ergonomic without the danger of matching on name alone: two
+ * students called Priya Sharma are one careless tap from the wrong pass being
+ * activated, so the caller always picks a specific id.
+ *
+ * Results are ordered so the instructor's own students come first — the same
+ * name is far more likely to be the one they already teach.
+ */
+export async function searchStudents(args: {
+  query: string;
+  instructorId: string;
+  limit?: number;
+}): Promise<StudentMatch[]> {
+  const q = args.query.trim().toLowerCase();
+  if (q.length < 2) return [];
+
+  const like = `%${q}%`;
+  // Phone is matched on digits only, so "98765 43210" finds "+919876543210".
+  const digits = q.replace(/\D/g, "");
+  const phoneLike = digits.length >= 4 ? `%${digits}%` : null;
+
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      phone: users.phone,
+      known: sql<number>`(
+        select count(*) from ${enrollments}
+         where ${enrollments.studentId} = ${users.id}
+           and ${enrollments.instructorId} = ${args.instructorId}
+      )`,
+    })
+    .from(users)
+    .where(
+      and(
+        eq(users.role, Role.STUDENT),
+        phoneLike
+          ? sql`(lower(${users.name}) like ${like}
+                 or lower(${users.email}) like ${like}
+                 or replace(replace(replace(coalesce(${users.phone}, ''), ' ', ''), '-', ''), '+', '') like ${phoneLike})`
+          : sql`(lower(${users.name}) like ${like}
+                 or lower(${users.email}) like ${like})`,
+      ),
+    )
+    .limit(args.limit ?? 8);
+
+  return rows
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      phone: r.phone,
+      known: Number(r.known) > 0,
+    }))
+    .sort((a, b) => Number(b.known) - Number(a.known) || a.name.localeCompare(b.name));
+}
+
+/**
+ * Record a payment against a pass the instructor describes on the spot.
+ *
+ * Not every pack an instructor sells exists as a saved plan — a one-off
+ * arrangement, a family rate, a pack carried over from before they joined.
+ * Forcing those through a dropdown of saved plans meant they either went
+ * unrecorded or got logged against the wrong plan, which corrupts the one
+ * ledger the instructor is supposed to trust.
+ */
+export async function recordAdHocPayment(args: {
+  studentId: string;
+  instructorId: string;
+  offeringId: string;
+  label: string;
+  amountPaise: number;
+  sessionsIncluded: number | null;
+  validityDays: number | null;
+  note?: string;
+}): Promise<
+  | { ok: true; paymentId: string; enrollmentId: string }
+  | { ok: false; error: string }
+> {
+  const offering = await db.query.offerings.findFirst({
+    where: eq(offerings.id, args.offeringId),
+  });
+  if (!offering) return { ok: false, error: "That class no longer exists." };
+  if (offering.instructorId !== args.instructorId) {
+    return { ok: false, error: "That class doesn't belong to you." };
+  }
+
+  const startedAt = new Date();
+  const candidateExpiry = args.validityDays
+    ? addDays(startedAt, args.validityDays)
+    : null;
+
+  const active = await db.query.enrollments.findFirst({
+    where: and(
+      eq(enrollments.studentId, args.studentId),
+      eq(enrollments.offeringId, args.offeringId),
+      eq(enrollments.status, EnrollmentStatus.ACTIVE),
+    ),
+  });
+
+  let enrollmentId: string;
+
+  if (active && active.sessionsRemaining !== null && args.sessionsIncluded !== null) {
+    const nextExpiresAt =
+      candidateExpiry && (!active.expiresAt || candidateExpiry > active.expiresAt)
+        ? candidateExpiry
+        : active.expiresAt;
+    await db
+      .update(enrollments)
+      .set({
+        sessionsRemaining: active.sessionsRemaining + args.sessionsIncluded,
+        expiresAt: nextExpiresAt,
+      })
+      .where(eq(enrollments.id, active.id));
+    enrollmentId = active.id;
+  } else if (active) {
+    return {
+      ok: false,
+      error:
+        "That student already has an unlimited pass for this class. Let it expire before adding another.",
+    };
+  } else {
+    const [created] = await db
+      .insert(enrollments)
+      .values({
+        studentId: args.studentId,
+        offeringId: args.offeringId,
+        instructorId: args.instructorId,
+        planId: null,
+        status: EnrollmentStatus.ACTIVE,
+        sessionsRemaining: args.sessionsIncluded,
+        startedAt,
+        expiresAt: candidateExpiry,
+      })
+      .returning();
+    enrollmentId = created.id;
+  }
+
+  const [payment] = await db
+    .insert(payments)
+    .values({
+      studentId: args.studentId,
+      instructorId: args.instructorId,
+      enrollmentId,
+      invoiceNo: generateInvoiceNo(),
+      description: `${offering.title} — ${args.label}${args.note ? ` (${args.note})` : ""}`,
+      amountPaise: args.amountPaise,
+      method: "OFFLINE",
+      provider: "offline",
+      status: PaymentStatus.PAID,
+      paidAt: new Date(),
+    })
+    .returning();
+
+  await notify({
+    userId: args.studentId,
+    type: NotificationType.PAYMENT_RECEIVED,
+    title: "Payment recorded",
+    body: `Your instructor recorded a payment of ${formatMoney(args.amountPaise)} for ${offering.title}.`,
+    link: "/dashboard/payments",
+    email: true,
+  });
+
+  return { ok: true, paymentId: payment.id, enrollmentId };
+}
+
+/**
+ * Undo a recorded payment and take back what it granted.
+ *
+ * Instructors record cash in a hurry and get it wrong — wrong student, wrong
+ * amount, recorded twice. Without this the only fix was editing the database.
+ * Sessions already spent are not clawed back below zero: a student who has
+ * attended two classes keeps having attended them.
+ */
+export async function voidOfflinePayment(args: {
+  paymentId: string;
+  instructorId: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const payment = await db.query.payments.findFirst({
+    where: eq(payments.id, args.paymentId),
+  });
+  if (!payment) return { ok: false, error: "Payment not found." };
+  if (payment.instructorId !== args.instructorId) {
+    return { ok: false, error: "Payment not found." };
+  }
+  if (payment.method !== "OFFLINE") {
+    return {
+      ok: false,
+      error: "Only cash and pass-code payments can be voided here. Refund online payments through the gateway.",
+    };
+  }
+  if (payment.status === PaymentStatus.REFUNDED) {
+    return { ok: false, error: "That payment is already voided." };
+  }
+
+  const claim = await db
+    .update(payments)
+    .set({
+      status: PaymentStatus.REFUNDED,
+      refundedPaise: payment.amountPaise,
+    })
+    .where(
+      and(
+        eq(payments.id, payment.id),
+        ne(payments.status, PaymentStatus.REFUNDED),
+      ),
+    );
+  if (claim.rowsAffected === 0) {
+    return { ok: false, error: "That payment is already voided." };
+  }
+
+  if (payment.enrollmentId) {
+    const enrollment = await db.query.enrollments.findFirst({
+      where: eq(enrollments.id, payment.enrollmentId),
+    });
+    if (enrollment) {
+      // Work out what this payment added, and remove no more than what's left
+      // unspent. Anything already used stays used.
+      const plan = enrollment.planId
+        ? await db.query.pricingPlans.findFirst({
+            where: eq(pricingPlans.id, enrollment.planId),
+          })
+        : null;
+      const granted = plan?.sessionsIncluded ?? null;
+
+      if (enrollment.sessionsRemaining === null || granted === null) {
+        // Unlimited or untracked: cancelling the pass outright is the only
+        // meaningful reversal.
+        await db
+          .update(enrollments)
+          .set({
+            status: EnrollmentStatus.CANCELLED,
+            cancelledAt: new Date(),
+          })
+          .where(eq(enrollments.id, enrollment.id));
+      } else {
+        const remaining = Math.max(0, enrollment.sessionsRemaining - granted);
+        await db
+          .update(enrollments)
+          .set({
+            sessionsRemaining: remaining,
+            ...(remaining === 0
+              ? { status: EnrollmentStatus.CANCELLED, cancelledAt: new Date() }
+              : {}),
+          })
+          .where(eq(enrollments.id, enrollment.id));
+      }
+    }
+  }
+
+  await notify({
+    userId: payment.studentId,
+    type: NotificationType.PAYMENT_RECEIVED,
+    title: "A payment was corrected",
+    body: `Your instructor voided the payment on invoice ${payment.invoiceNo}. Ask them if this looks wrong.`,
+    link: "/dashboard/payments",
+    email: true,
+  });
+
+  return { ok: true };
+}
+
+/** Edit the safe fields on a recorded payment: amount, note and date. */
+export async function updateOfflinePayment(args: {
+  paymentId: string;
+  instructorId: string;
+  amountPaise: number;
+  note: string;
+  paidAt: Date;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const payment = await db.query.payments.findFirst({
+    where: eq(payments.id, args.paymentId),
+  });
+  if (!payment) return { ok: false, error: "Payment not found." };
+  if (payment.instructorId !== args.instructorId) {
+    return { ok: false, error: "Payment not found." };
+  }
+  if (payment.method !== "OFFLINE") {
+    return { ok: false, error: "Only cash payments can be edited here." };
+  }
+  if (payment.status === PaymentStatus.REFUNDED) {
+    return { ok: false, error: "That payment is voided and can't be edited." };
+  }
+
+  // What the student bought is deliberately not editable: credits may already
+  // have been spent against it, so changing the pass retrospectively would
+  // leave the enrolment and the ledger disagreeing about what was sold.
+  const base = payment.description.split(" (")[0];
+
+  await db
+    .update(payments)
+    .set({
+      amountPaise: Math.max(0, args.amountPaise),
+      description: args.note ? `${base} (${args.note})` : base,
+      paidAt: args.paidAt,
+    })
+    .where(eq(payments.id, payment.id));
+
+  return { ok: true };
+}

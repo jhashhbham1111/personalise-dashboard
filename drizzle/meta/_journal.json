@@ -8,6 +8,13 @@
       "when": 1787137135060,
       "tag": "0000_regular_natasha_romanoff",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787336956865,
+      "tag": "0001_slimy_carmella_unuscione",
+      "breakpoints": true
     }
   ]
 }

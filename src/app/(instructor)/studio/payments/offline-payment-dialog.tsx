@@ -10,8 +10,16 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
 import { Modal, ModalClose } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { StudentPicker } from "./student-picker";
 
-type PlanOption = { id: string; label: string; amountRupees: number };
+type PlanOption = {
+  id: string;
+  label: string;
+  amountRupees: number;
+  offeringId: string;
+};
+
+const CUSTOM = "__custom__";
 
 /**
  * Cash and bank-transfer payments.
@@ -22,16 +30,17 @@ type PlanOption = { id: string; label: string; amountRupees: number };
  */
 export function OfflinePaymentDialog({
   plans,
-  students,
+  offerings,
 }: {
   plans: PlanOption[];
-  students: { id: string; name: string; email: string }[];
+  offerings: { id: string; title: string }[];
 }) {
   const [state, action] = useActionState(recordOfflinePaymentAction, emptyState);
   const [open, setOpen] = useState(false);
-  const [planId, setPlanId] = useState(plans[0]?.id ?? "");
+  const [planId, setPlanId] = useState(plans[0]?.id ?? CUSTOM);
 
   const selectedPlan = plans.find((p) => p.id === planId);
+  const isCustom = planId === CUSTOM;
 
   return (
     <Modal
@@ -49,35 +58,7 @@ export function OfflinePaymentDialog({
       <form action={action} className="space-y-4">
         <FormMessage state={state} />
 
-        <Field
-          label="Student's email"
-          htmlFor="studentEmail"
-          error={state.fields?.studentEmail}
-          hint={
-            students.length > 0
-              ? "Start typing to pick someone you've taught before, or enter a new student's email."
-              : "The email they signed up with."
-          }
-        >
-          <Input
-            id="studentEmail"
-            name="studentEmail"
-            type="email"
-            list="known-students"
-            placeholder="student@example.com"
-            autoComplete="off"
-            required
-          />
-          {/* Previous students are a convenience, not a constraint — the whole
-              point of this dialog is enrolling someone for the first time. */}
-          <datalist id="known-students">
-            {students.map((s) => (
-              <option key={s.id} value={s.email}>
-                {s.name}
-              </option>
-            ))}
-          </datalist>
-        </Field>
+        <StudentPicker error={state.fields?.student} />
 
         <Field label="What did they buy?" htmlFor="planId">
           <Select
@@ -92,13 +73,80 @@ export function OfflinePaymentDialog({
                 {p.label}
               </option>
             ))}
+            <option value={CUSTOM}>Something else…</option>
           </Select>
         </Field>
+
+        {/* Not every pack an instructor sells is a saved plan — a family rate,
+            a one-off arrangement, a pack carried over from before. Without
+            this those either went unrecorded or got logged against the wrong
+            plan, which quietly corrupts the ledger. */}
+        {isCustom ? (
+          <div className="space-y-4 rounded-lg border border-line-strong bg-paper p-3.5">
+            <Field
+              label="Pass name"
+              htmlFor="customLabel"
+              error={state.fields?.customLabel}
+            >
+              <Input
+                id="customLabel"
+                name="customLabel"
+                placeholder="6-class family pack"
+                required
+              />
+            </Field>
+
+            <Field
+              label="For which class?"
+              htmlFor="customOfferingId"
+              error={state.fields?.customOfferingId}
+            >
+              <Select id="customOfferingId" name="customOfferingId" required>
+                {offerings.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.title}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Classes included"
+                htmlFor="customSessions"
+                hint="blank = unlimited"
+              >
+                <Input
+                  id="customSessions"
+                  name="customSessions"
+                  type="number"
+                  min={1}
+                  placeholder="6"
+                />
+              </Field>
+              <Field
+                label="Valid for"
+                htmlFor="customValidity"
+                hint="days, blank = no expiry"
+              >
+                <Input
+                  id="customValidity"
+                  name="customValidity"
+                  type="number"
+                  min={1}
+                  max={365}
+                  placeholder="60"
+                />
+              </Field>
+            </div>
+          </div>
+        ) : null}
 
         <Field
           label="Amount received"
           htmlFor="amount"
           hint="₹ — edit if you gave a discount"
+          error={state.fields?.amount}
         >
           <Input
             id="amount"
@@ -106,7 +154,6 @@ export function OfflinePaymentDialog({
             type="number"
             min={1}
             step={1}
-            value={undefined}
             defaultValue={selectedPlan?.amountRupees}
             key={planId}
             required
@@ -114,11 +161,7 @@ export function OfflinePaymentDialog({
         </Field>
 
         <Field label="Note" htmlFor="note" hint="optional">
-          <Input
-            id="note"
-            name="note"
-            placeholder="Cash, paid at the studio"
-          />
+          <Input id="note" name="note" placeholder="Cash, paid at the studio" />
         </Field>
 
         <div className="flex justify-end gap-2">

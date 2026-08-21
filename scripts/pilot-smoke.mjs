@@ -86,11 +86,28 @@ try {
   /* ------------------------------ the instructor records the cash payment */
   const instructor = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await login(instructor, "ananya@personalise.app");
+
+  /**
+   * Picks a student through the search-as-you-type field.
+   *
+   * The dialog resolves the person to an account id before submitting, so this
+   * has to go through the same search-and-click a human does — typing an
+   * address into a text box is exactly what the picker replaced.
+   */
+  async function pickStudent(page, term) {
+    await page.fill("#student-search", term);
+    // Scoped to the picker's listbox — a bare role=option also matches the
+    // <option> elements inside the plan <select> further down the form.
+    const option = page.locator('ul[role="listbox"] [role="option"]').first();
+    await option.waitFor({ timeout: 15000 });
+    await option.click();
+  }
+
   await instructor.goto(`${BASE}/studio/payments`, { waitUntil: "domcontentloaded" });
   await instructor.getByRole("button", { name: /record a payment/i }).first().click();
   await instructor.waitForTimeout(500);
 
-  await instructor.fill('input[name="studentEmail"]', studentEmail);
+  await pickStudent(instructor, studentEmail);
   await instructor.getByRole("button", { name: /^record payment$/i }).click();
   await instructor.waitForTimeout(2000);
 
@@ -120,36 +137,37 @@ try {
     `${payRow[0]?.method}/${payRow[0]?.status}/${payRow[0]?.invoiceNo}`,
   );
 
-  /* ------------------------------------- recording it twice is refused */
+  /* ------------------ a second payment tops the same pass up, not a new one */
   await instructor.goto(`${BASE}/studio/payments`, { waitUntil: "domcontentloaded" });
   await instructor.getByRole("button", { name: /record a payment/i }).first().click();
   await instructor.waitForTimeout(400);
-  await instructor.fill('input[name="studentEmail"]', studentEmail);
+  await pickStudent(instructor, studentEmail);
   await instructor.getByRole("button", { name: /^record payment$/i }).click();
   await instructor.waitForTimeout(1500);
 
   const { rows: enrolDup } = await db.execute({
-    sql: `select count(*) as n from enrollments e
+    sql: `select count(*) as n, max(sessions_remaining) as remaining
+            from enrollments e
             join users u on u.id = e.student_id where u.email = ?`,
     args: [studentEmail],
   });
   check(
-    "recording the same payment twice doesn't double the pass",
+    "a second payment tops the existing pass up rather than making a new one",
     Number(enrolDup[0].n) === 1,
-    `${enrolDup[0].n} enrolment(s)`,
+    `${enrolDup[0].n} enrolment(s), ${enrolDup[0].remaining} session(s) on it`,
   );
 
-  /* ------------------------------ an unknown email is a clear error */
+  /* ------------------------------ an unknown person can't be picked at all */
   await instructor.goto(`${BASE}/studio/payments`, { waitUntil: "domcontentloaded" });
   await instructor.getByRole("button", { name: /record a payment/i }).first().click();
   await instructor.waitForTimeout(400);
-  await instructor.fill('input[name="studentEmail"]', "nobody-here@example.com");
-  await instructor.getByRole("button", { name: /^record payment$/i }).click();
-  await instructor.waitForTimeout(1200);
+  await instructor.fill("#student-search", "nobody-here@example.com");
+  await instructor.waitForTimeout(1500);
   const dialogText = (await instructor.locator("body").innerText()).toLowerCase();
   check(
-    "an unknown email explains what to do rather than failing silently",
-    dialogText.includes("no student account") || dialogText.includes("sign up"),
+    "an unknown person explains what to do rather than failing silently",
+    dialogText.includes("no student account matches") ||
+      dialogText.includes("sign up"),
   );
   await instructor.close();
 

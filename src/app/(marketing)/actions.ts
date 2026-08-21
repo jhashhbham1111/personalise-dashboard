@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { bookSession, cancelBooking } from "@/lib/booking";
 import { startCheckout } from "@/lib/checkout";
+import { previewPassCode, redeemPassCode } from "@/lib/pass-codes";
 import { getCurrentUser } from "@/lib/auth";
 import { fail, ok, str, type ActionState } from "@/lib/actions";
 
@@ -51,6 +52,36 @@ export async function cancelBookingAction(
       ? "Cancelled — the session credit is back on your pass."
       : "Cancelled.",
   );
+}
+
+/**
+ * Look a pass code up without spending it, so the student can see what they're
+ * about to activate and catch a mistyped code before it's consumed.
+ */
+export async function previewPassCodeAction(code: string) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false as const, error: "Sign in to redeem a code." };
+  return previewPassCode(code);
+}
+
+export async function redeemPassCodeAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  const code = str(form, "code");
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect(`/login?next=${encodeURIComponent("/dashboard/redeem")}`);
+  }
+
+  const result = await redeemPassCode({ studentId: user.id, code });
+  if (!result.ok) return fail(result.error);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/passes");
+  revalidatePath("/dashboard/payments");
+
+  return ok(`${result.label} is active. Book your first class whenever you like.`);
 }
 
 /** Start paying for a pass. Redirects into the checkout. */

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 
 import { loginAction } from "../actions";
 import { emptyState } from "@/lib/actions";
@@ -38,6 +39,15 @@ export function LoginForm({ next }: { next?: string }) {
           placeholder="••••••••"
         />
       </Field>
+
+      <div className="-mt-1 text-right">
+        <Link
+          href="/forgot-password"
+          className="text-sm text-brand-600 hover:underline"
+        >
+          Forgot your password?
+        </Link>
+      </div>
 
       <SubmitButton block size="lg" pendingText="Signing in…">
         Sign in

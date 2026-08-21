@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
+import { Alert } from "@/components/ui/page";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -8,9 +9,9 @@ export const metadata: Metadata = { title: "Sign in" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; reset?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, reset } = await searchParams;
 
   return (
     <div>
@@ -18,6 +19,12 @@ export default async function LoginPage({
       <p className="mt-1 text-sm text-ink-soft">
         Sign in to see your classes and bookings.
       </p>
+
+      {reset ? (
+        <Alert tone="success" className="mt-5">
+          Your password has been changed. Sign in with your new one.
+        </Alert>
+      ) : null}
 
       <LoginForm next={next} />
 

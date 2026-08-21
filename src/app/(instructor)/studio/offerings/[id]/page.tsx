@@ -16,13 +16,10 @@ export const metadata: Metadata = { title: "Edit class" };
 
 export default async function EditOfferingPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string }>;
 }) {
   const { id } = await params;
-  const { created } = await searchParams;
   const user = await requireInstructor();
 
   const offering = await db.query.offerings.findFirst({
@@ -72,20 +69,20 @@ export default async function EditOfferingPage({
         }
       />
 
-      {created ? (
-        <Alert tone="success">
-          Class created. Add at least one pass below so students can enrol, then
-          give it a time under{" "}
-          <Link href="/studio/schedule" className="font-medium underline">
-            Schedule
-          </Link>
-          .
-        </Alert>
-      ) : null}
-
+      {/* The warning has to carry its own way out. Stating a problem whose fix
+          is a long scroll further down the page is how a class ends up created
+          but permanently unsellable. */}
       {activePlans.length === 0 ? (
         <Alert tone="warning">
-          This class has no prices yet, so nobody can enrol in it.
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>This class has no prices yet, so nobody can enrol in it.</span>
+            <ButtonLink
+              href={`/studio/offerings/${offering.id}/setup`}
+              size="sm"
+            >
+              Add a price
+            </ButtonLink>
+          </div>
         </Alert>
       ) : null}
 

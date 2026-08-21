@@ -96,6 +96,21 @@ export function SignupForm({
       </Field>
 
       <Field
+        label="Phone"
+        htmlFor="phone"
+        hint="optional — helps your instructor find you"
+        error={state.fields?.phone}
+      >
+        <Input
+          id="phone"
+          name="phone"
+          type="tel"
+          autoComplete="tel"
+          placeholder="+91 98765 43210"
+        />
+      </Field>
+
+      <Field
         label="Password"
         htmlFor="password"
         hint="8 characters or more"

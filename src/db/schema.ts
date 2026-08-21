@@ -492,6 +492,78 @@ export const rateLimitHits = sqliteTable(
   ],
 );
 
+/**
+ * Redeemable pass codes.
+ *
+ * The instructor generates a batch, hands one to each student who has paid
+ * them, and the student activates their own pass. That removes the per-student
+ * manual activation that makes offline money unworkable past a handful of
+ * people: the instructor's only job is handing over a code.
+ *
+ * A code carries its own price and pass terms so it stays valid even if the
+ * underlying plan is later edited or retired — a student holding a printed
+ * code should always get what they paid for.
+ */
+export const passCodes = sqliteTable(
+  "pass_codes",
+  {
+    id: id(),
+    instructorId: text("instructor_id")
+      .notNull()
+      .references(() => instructorProfiles.id, { onDelete: "cascade" }),
+    offeringId: text("offering_id")
+      .notNull()
+      .references(() => offerings.id, { onDelete: "cascade" }),
+    planId: text("plan_id").references(() => pricingPlans.id, {
+      onDelete: "set null",
+    }),
+    /** Uppercase, unambiguous alphabet — see src/lib/pass-codes.ts */
+    code: text("code").notNull().unique(),
+    label: text("label").notNull(),
+    amountPaise: integer("amount_paise").notNull(),
+    /** null = unlimited within the validity window */
+    sessionsIncluded: integer("sessions_included"),
+    validityDays: integer("validity_days"),
+    note: text("note"),
+    /** ACTIVE | REDEEMED | REVOKED */
+    status: text("status").notNull().default("ACTIVE"),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
+    redeemedBy: text("redeemed_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    redeemedAt: integer("redeemed_at", { mode: "timestamp_ms" }),
+    enrollmentId: text("enrollment_id").references(() => enrollments.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("pass_code_instructor_idx").on(t.instructorId, t.status),
+    index("pass_code_offering_idx").on(t.offeringId),
+  ],
+);
+
+/**
+ * Single-use password reset tokens.
+ *
+ * Only the SHA-256 digest is stored, so a leaked database row can't be used to
+ * reset anyone's password. Rows are consumed on use and swept once expired.
+ */
+export const passwordResetTokens = sqliteTable(
+  "password_reset_tokens",
+  {
+    id: id(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    usedAt: integer("used_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("reset_user_idx").on(t.userId)],
+);
+
 export const notifications = sqliteTable(
   "notifications",
   {
@@ -739,6 +811,39 @@ export const availabilityExceptionsRelations = relations(
   }),
 );
 
+export const passCodesRelations = relations(passCodes, ({ one }) => ({
+  instructor: one(instructorProfiles, {
+    fields: [passCodes.instructorId],
+    references: [instructorProfiles.id],
+  }),
+  offering: one(offerings, {
+    fields: [passCodes.offeringId],
+    references: [offerings.id],
+  }),
+  plan: one(pricingPlans, {
+    fields: [passCodes.planId],
+    references: [pricingPlans.id],
+  }),
+  redeemer: one(users, {
+    fields: [passCodes.redeemedBy],
+    references: [users.id],
+  }),
+  enrollment: one(enrollments, {
+    fields: [passCodes.enrollmentId],
+    references: [enrollments.id],
+  }),
+}));
+
+export const passwordResetTokensRelations = relations(
+  passwordResetTokens,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [passwordResetTokens.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
 /* ------------------------------------------------------------ row types */
 
 export type User = typeof users.$inferSelect;
@@ -756,3 +861,5 @@ export type Post = typeof posts.$inferSelect;
 export type Review = typeof reviews.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type ModerationEvent = typeof moderationEvents.$inferSelect;
+export type PassCode = typeof passCodes.$inferSelect;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;

@@ -52,6 +52,18 @@ function emailProvider(): EmailProvider {
   return env.notifyProvider === "resend" ? resendEmail : consoleEmail;
 }
 
+/**
+ * Send an email that has no in-app counterpart.
+ *
+ * Password reset is the case this exists for: the recipient can't sign in, so
+ * a notification row they'd never see is worse than useless. Throws on failure
+ * rather than swallowing, because unlike a receipt, a reset link that didn't
+ * arrive leaves the person stuck.
+ */
+export async function sendEmail(input: EmailInput): Promise<void> {
+  await emailProvider().send(input);
+}
+
 export async function notify(args: {
   userId: string;
   type: NotificationType;

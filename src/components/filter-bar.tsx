@@ -71,6 +71,32 @@ export function FilterSelect({
   );
 }
 
+/** A date input that applies as soon as a date is picked. */
+export function FilterDate({
+  name,
+  label,
+  defaultValue,
+}: {
+  name: string;
+  label: string;
+  defaultValue?: string;
+}) {
+  return (
+    <input
+      type="date"
+      name={name}
+      defaultValue={defaultValue}
+      aria-label={label}
+      onChange={(e) => e.currentTarget.form?.requestSubmit()}
+      className={cn(
+        "h-10 w-auto min-w-40 rounded-lg border border-line-strong bg-surface px-3",
+        "text-sm text-ink transition-colors",
+        "focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500",
+      )}
+    />
+  );
+}
+
 /** Single-select pills that read and write one query param. */
 export function FilterChips({
   basePath,

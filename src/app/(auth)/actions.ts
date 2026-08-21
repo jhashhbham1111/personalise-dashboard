@@ -13,7 +13,11 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import { Role } from "@/lib/enums";
-import { fail, str, type ActionState } from "@/lib/actions";
+import {
+  completePasswordReset,
+  requestPasswordReset,
+} from "@/lib/password-reset";
+import { fail, ok, str, type ActionState } from "@/lib/actions";
 import { clearRateLimit, clientIp, rateLimit } from "@/lib/rate-limit";
 import { slugify } from "@/lib/utils";
 
@@ -31,6 +35,15 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function safeNext(next: string, fallback: string): string {
   if (!next.startsWith("/") || next.startsWith("//")) return fallback;
   return next;
+}
+
+/** Keeps digits and a leading +, so "+91 98765 43210" and "09876543210" match. */
+function normalisePhone(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const plus = trimmed.startsWith("+");
+  const digits = trimmed.replace(/\D/g, "");
+  return digits ? `${plus ? "+" : ""}${digits}` : "";
 }
 
 export async function loginAction(
@@ -85,11 +98,16 @@ export async function signupAction(
   const email = str(form, "email").toLowerCase();
   const password = str(form, "password");
   const intent = str(form, "intent"); // "learn" | "teach"
+  // Optional, but the thing an instructor actually knows about a student who
+  // just handed them cash — it makes them findable without an exact email.
+  const phone = normalisePhone(str(form, "phone"));
 
   const fields: Record<string, string> = {};
   if (name.length < 2) fields.name = "Tell us your name.";
   if (!EMAIL_RE.test(email)) fields.email = "That doesn't look like an email address.";
   if (password.length < 8) fields.password = "Use at least 8 characters.";
+  if (phone && phone.replace(/\D/g, "").length < 7)
+    fields.phone = "That doesn't look like a phone number.";
   if (Object.keys(fields).length) return fail("Check the highlighted fields.", fields);
 
   // Signup answers "does this email have an account?" truthfully, which makes
@@ -118,6 +136,7 @@ export async function signupAction(
     .values({
       name,
       email,
+      phone: phone || null,
       passwordHash: await hashPassword(password),
       role,
     })
@@ -131,6 +150,62 @@ export async function signupAction(
 export async function logoutAction() {
   await destroySession();
   redirect("/");
+}
+
+/* ---------------------------------------------------------- password reset */
+
+export async function requestPasswordResetAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  const email = str(form, "email");
+  if (!EMAIL_RE.test(email)) {
+    return fail("Enter the email address on your account.", {
+      email: "That doesn't look like an email address.",
+    });
+  }
+
+  // Rate limited per address and per IP: this endpoint sends mail to an
+  // address the caller chose, so without a cap it's a way to have us spam
+  // someone else's inbox.
+  const ip = clientIp(await headers());
+  for (const [key, limit] of [
+    [`reset:ip:${ip}`, 10],
+    [`reset:email:${email.toLowerCase()}`, 4],
+  ] as const) {
+    const gate = await rateLimit({ key, limit, windowSeconds: 3600 });
+    if (!gate.ok) {
+      return fail("Too many reset requests. Try again in an hour.");
+    }
+  }
+
+  await requestPasswordReset(email);
+
+  // Deliberately the same answer whether or not the account exists — anything
+  // else turns this form into a way to test which emails are registered.
+  return ok(
+    "If that email has an account, a reset link is on its way. It expires in an hour.",
+  );
+}
+
+export async function completePasswordResetAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  const token = str(form, "token");
+  const password = str(form, "password");
+  const confirm = str(form, "confirm");
+
+  if (password !== confirm) {
+    return fail("Those passwords don't match.", {
+      confirm: "Enter the same password twice.",
+    });
+  }
+
+  const result = await completePasswordReset({ token, password });
+  if (!result.ok) return fail(result.error, { password: result.error });
+
+  redirect("/login?reset=1");
 }
 
 /**

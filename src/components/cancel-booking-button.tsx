@@ -36,11 +36,26 @@ export function CancelBookingButton({
       description={
         free
           ? "You're within the free cancellation window, so the session credit goes back on your pass."
-          : `This class starts in under ${FREE_CANCELLATION_HOURS} hours, so the session credit won't be returned.`
+          : undefined
       }
     >
       <form action={action} className="space-y-3">
         <input type="hidden" name="bookingId" value={bookingId} />
+
+        {/* Losing a paid credit is the kind of consequence people need shown to
+            them, not mentioned. As muted description text it read as reassurance
+            and students confirmed straight through it, then asked where their
+            class had gone. */}
+        {!free ? (
+          <Alert tone="warning">
+            <span className="font-medium">
+              You won&rsquo;t get this class credit back.
+            </span>{" "}
+            Free cancellation ends {FREE_CANCELLATION_HOURS} hours before the
+            start time, and that&rsquo;s already passed — your instructor has
+            held the slot. Cancelling now uses up the class.
+          </Alert>
+        ) : null}
 
         {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
         {state.success ? <Alert tone="success">{state.success}</Alert> : null}
@@ -50,7 +65,7 @@ export function CancelBookingButton({
             <Button variant="secondary">Keep my place</Button>
           </ModalClose>
           <SubmitButton variant="danger" pendingText="Cancelling…">
-            Cancel booking
+            {free ? "Cancel booking" : "Cancel and lose the credit"}
           </SubmitButton>
         </div>
       </form>

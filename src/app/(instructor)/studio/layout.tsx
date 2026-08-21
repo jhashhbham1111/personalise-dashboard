@@ -11,6 +11,7 @@ export const TABS = [
   { href: "/studio/schedule", label: "Schedule" },
   { href: "/studio/students", label: "Students" },
   { href: "/studio/payments", label: "Fees" },
+  { href: "/studio/codes", label: "Pass codes" },
   { href: "/studio/media", label: "Videos" },
   { href: "/studio/updates", label: "Updates" },
   { href: "/studio/venues", label: "Venues" },
