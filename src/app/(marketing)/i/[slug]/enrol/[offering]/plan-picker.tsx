@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 
 import { enrolAction } from "../../../../actions";
 import { emptyState } from "@/lib/actions";
@@ -161,6 +162,26 @@ export function PlanPicker({
             Sign in to enrol
           </ButtonLink>
         )}
+
+        {/* A pass code is a real, self-service alternative to every path
+            above — not just for the offline-payment case, since redeeming
+            one works the same way regardless of whether online checkout is
+            on. This is the page a student actually lands on to enrol, so if
+            the hint isn't here, a code they were handed effectively doesn't
+            exist for them. */}
+        <p className="mt-3 text-center text-xs text-ink-faint">
+          Already got a pass code from {instructorName}?{" "}
+          <Link
+            href={
+              isSignedIn
+                ? "/dashboard/redeem"
+                : `/login?next=${encodeURIComponent("/dashboard/redeem")}`
+            }
+            className="font-medium text-brand-700 hover:underline"
+          >
+            Redeem it
+          </Link>
+        </p>
       </form>
     </Card>
   );
