@@ -3,8 +3,9 @@ import { CalendarX } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth";
 import {
+  classCities,
+  enrolledOfferingIds,
   getInstructorBySlug,
-  instructorCities,
   listUpcomingSessions,
 } from "@/lib/queries";
 import { DISCIPLINES } from "@/lib/enums";
@@ -23,7 +24,7 @@ import {
   FilterDate,
   FilterSelect,
 } from "@/components/filter-bar";
-import { pluralize } from "@/lib/utils";
+import { listFilters, pluralize } from "@/lib/utils";
 
 /** Rebuilds the current URL with one param changed. */
 function buildHref(
@@ -89,7 +90,7 @@ export default async function ClassesPage({
   const to =
     within === "all" ? undefined : addDays(rangeStart, Number(within));
 
-  const [sessions, cities] = await Promise.all([
+  const [sessions, cities, enrolledIds] = await Promise.all([
     listUpcomingSessions({
       discipline: params.discipline,
       city: params.city,
@@ -99,8 +100,24 @@ export default async function ClassesPage({
       to,
       limit: 120,
     }),
-    instructorCities(),
+    // Venue cities included: an in-person class in a city no instructor lives
+    // in was previously unfilterable, because the options came only from
+    // instructor profiles.
+    classCities(),
+    viewer ? enrolledOfferingIds(viewer.id) : Promise.resolve(new Set<string>()),
   ]);
+
+  const cardViewer = { signedIn: !!viewer, enrolledOfferingIds: enrolledIds };
+
+  // Which filters are actually narrowing the results, so the empty state can
+  // offer to drop exactly those and nothing else.
+  const activeFilters = [
+    params.discipline && "discipline",
+    params.city && "city",
+    params.mode && "format",
+    params.from && "start date",
+    within !== DEFAULT_RANGE && "date range",
+  ].filter(Boolean) as string[];
 
   const rangeLabel =
     RANGES.find((r) => r.value === within)?.label ?? "Next 7 days";
@@ -184,24 +201,47 @@ export default async function ClassesPage({
       </p>
 
       {sessions.length === 0 ? (
+        /*
+         * The way out has to actually get you somewhere. This used to offer
+         * only "show everything scheduled", which widened the dates but kept
+         * every other filter — and once you were already on "all", it offered
+         * nothing at all, which is exactly the dead end you reach after
+         * stacking filters. Widening dates is still the first thing to try
+         * when that's the binding constraint, but clearing outright is always
+         * available.
+         */
         <EmptyState
           className="mt-4"
           icon={<CalendarX className="h-8 w-8" />}
           title="Nothing scheduled that matches"
           description={
-            within === "all"
-              ? "Try a different discipline, or widen the format filter."
-              : "Nothing in this window. Try looking further ahead, or widen the filters."
+            activeFilters.length > 0
+              ? `No classes match your ${listFilters(activeFilters)}.`
+              : "There's nothing on the timetable just yet. Check back soon."
           }
           action={
-            within === "all" ? undefined : (
-              <ButtonLink
-                href={buildHref("/classes", { ...params, within: "all" })}
-                variant="secondary"
-              >
-                Show everything scheduled
-              </ButtonLink>
-            )
+            activeFilters.length > 0 ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                {within !== "all" ? (
+                  <ButtonLink
+                    href={buildHref("/classes", { ...params, within: "all" })}
+                    variant="secondary"
+                  >
+                    Look further ahead
+                  </ButtonLink>
+                ) : null}
+                <ButtonLink
+                  href={buildHref("/classes", {
+                    // The one filter worth keeping: arriving from an
+                    // instructor's page and being dumped into the full
+                    // marketplace loses the thread of what you were browsing.
+                    instructor: params.instructor,
+                  })}
+                >
+                  Clear filters
+                </ButtonLink>
+              </div>
+            ) : undefined
           }
         />
       ) : (
@@ -213,7 +253,12 @@ export default async function ClassesPage({
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {items.map((s) => (
-                  <SessionCard key={s.id} session={s} timezone={tz} />
+                  <SessionCard
+                    key={s.id}
+                    session={s}
+                    timezone={tz}
+                    viewer={cardViewer}
+                  />
                 ))}
               </div>
             </section>

@@ -32,7 +32,11 @@ import { generatePassCodes, revokePassCode } from "@/lib/pass-codes";
 import {
   Attendance,
   BookingStatus,
+  ClassMode,
+  DISCIPLINES,
+  Level,
   NotificationType,
+  OfferingType,
   Role,
   SessionStatus,
 } from "@/lib/enums";
@@ -40,15 +44,24 @@ import { notify } from "@/lib/notify";
 import { materializeSessions } from "@/lib/scheduling";
 import {
   bool,
+  clamp,
   commaList,
   fail,
   num,
   ok,
+  pickEnum,
+  pickFrom,
   str,
   strList,
   type ActionState,
 } from "@/lib/actions";
-import { rupeesToPaise, slugify, stringifyList } from "@/lib/utils";
+import {
+  canonicalCity,
+  rupeesToPaise,
+  slugify,
+  stringifyList,
+  tidyTitle,
+} from "@/lib/utils";
 import { fromDateInput, timeInputToMinutes } from "@/lib/time";
 
 /**
@@ -78,7 +91,7 @@ export async function saveProfileAction(
   const user = await requireInstructor();
 
   const headline = str(form, "headline");
-  const city = str(form, "city");
+  const city = canonicalCity(str(form, "city"));
   if (headline.length < 10) {
     return fail("Your headline needs a bit more to it.", {
       headline: "A sentence on what you teach and who it's for.",
@@ -157,15 +170,27 @@ export async function saveOfferingAction(
   const user = await requireInstructor();
   const offeringId = str(form, "offeringId");
 
-  const title = str(form, "title");
-  const summary = str(form, "summary");
+  // Sentence-cased only when it was typed entirely in one case, so "yoga for
+  // beginners" and "YOGA FOR BEGINNERS" both land as "Yoga for beginners"
+  // while a deliberately styled name is left alone. Listings put these titles
+  // side by side, and one all-lowercase entry among them reads as broken.
+  const title = tidyTitle(str(form, "title"));
+  const summary = tidyTitle(str(form, "summary"));
   if (title.length < 3) return fail("Give the class a name.", { title: "Required." });
+  if (title.length > 120)
+    return fail("That class name is too long.", {
+      title: "Keep it under 120 characters.",
+    });
   if (summary.length < 10)
     return fail("Add a one-line summary.", {
       summary: "One sentence students will see in listings.",
     });
+  if (summary.length > 300)
+    return fail("That summary is too long.", {
+      summary: "Keep it under 300 characters — it appears on cards.",
+    });
 
-  const mode = str(form, "mode") || "ONLINE";
+  const mode = pickEnum(str(form, "mode"), ClassMode, "ONLINE");
   const venueId = str(form, "venueId") || null;
   if (mode !== "ONLINE" && !venueId) {
     return fail("In-person classes need a venue.", {
@@ -173,16 +198,23 @@ export async function saveOfferingAction(
     });
   }
 
+  // Every one of these arrives as a raw FormData string. The forms only ever
+  // offer valid options, but a hand-crafted POST could store anything — and an
+  // off-list discipline is worse than invalid data: the filter chips are built
+  // from DISCIPLINES, so such a class becomes permanently unfilterable while
+  // still appearing in listings.
   const values = {
     title,
     summary,
     description: str(form, "description"),
-    discipline: str(form, "discipline") || "Yoga",
-    type: str(form, "type") || "GROUP_CLASS",
+    discipline: pickFrom(str(form, "discipline"), DISCIPLINES, "Yoga"),
+    type: pickEnum(str(form, "type"), OfferingType, "GROUP_CLASS"),
     mode,
-    level: str(form, "level") || "ALL_LEVELS",
-    durationMin: Math.max(10, num(form, "durationMin", 60)),
-    capacity: Math.max(1, num(form, "capacity", 20)),
+    level: pickEnum(str(form, "level"), Level, "ALL_LEVELS"),
+    // Upper bounds mirror the inputs' own max attributes, which a direct POST
+    // skips entirely — an 8-hour cap and 500 seats are already generous.
+    durationMin: clamp(num(form, "durationMin", 60), 10, 480),
+    capacity: clamp(num(form, "capacity", 20), 1, 500),
     venueId: mode === "ONLINE" ? null : venueId,
     isActive: bool(form, "isActive"),
   };
@@ -344,7 +376,7 @@ export async function saveVenueAction(
 
   const name = str(form, "name");
   const addressLine = str(form, "addressLine");
-  const city = str(form, "city");
+  const city = canonicalCity(str(form, "city"));
   if (!name || !addressLine || !city) {
     return fail("Name, address and city are all needed so students can find you.");
   }

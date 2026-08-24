@@ -235,7 +235,14 @@ try {
     await cancelBtn.click();
     await page.waitForTimeout(500);
     await shot("16-cancel-dialog", false);
-    await page.getByRole("button", { name: /cancel booking/i }).click();
+    // The confirm button changes wording inside the free-cancellation window:
+    // "Cancel booking" when the credit comes back, "Cancel and lose the
+    // credit" when it doesn't. Which one appears depends on how far away the
+    // session this run happened to book is, so match either — anchoring on one
+    // made this suite pass or fail on the time of day.
+    await page
+      .getByRole("button", { name: /cancel booking|lose the credit/i })
+      .click();
     await page.waitForTimeout(2000);
     check("cancelling a booking works", true);
   } else {

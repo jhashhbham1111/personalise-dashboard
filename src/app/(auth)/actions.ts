@@ -12,14 +12,14 @@ import {
   homePathForRole,
   verifyPassword,
 } from "@/lib/auth";
-import { Role } from "@/lib/enums";
+import { DISCIPLINES, Role } from "@/lib/enums";
 import {
   completePasswordReset,
   requestPasswordReset,
 } from "@/lib/password-reset";
-import { fail, ok, str, type ActionState } from "@/lib/actions";
+import { clamp, fail, ok, str, type ActionState } from "@/lib/actions";
 import { clearRateLimit, clientIp, rateLimit } from "@/lib/rate-limit";
-import { slugify } from "@/lib/utils";
+import { canonicalCity, slugify, tidyPersonName } from "@/lib/utils";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -94,7 +94,11 @@ export async function signupAction(
   _prev: ActionState,
   form: FormData,
 ): Promise<ActionState> {
-  const name = str(form, "name");
+  // Title-cased only when typed in a single case, so "priya sharma" and
+  // "PRIYA SHARMA" both become "Priya Sharma" while "Anne-Marie McLeod" keeps
+  // the capitals its owner chose. This name is shown to instructors on their
+  // register and to other students in class.
+  const name = tidyPersonName(str(form, "name"));
   const email = str(form, "email").toLowerCase();
   const password = str(form, "password");
   const intent = str(form, "intent"); // "learn" | "teach"
@@ -221,13 +225,20 @@ export async function createInstructorProfileAction(
   if (!user) redirect("/login?next=/onboarding/instructor");
 
   const headline = str(form, "headline");
-  const city = str(form, "city");
+  // Normalised on write so the city dropdown has one entry per city rather
+  // than one per spelling — see canonicalCity.
+  const city = canonicalCity(str(form, "city"));
   const bio = str(form, "bio");
+  // Filtered against the known list rather than trusted: the discipline chips
+  // students browse by are built from DISCIPLINES, so anything else stored
+  // here is a profile that can never be found through the filter.
   const disciplines = form
     .getAll("disciplines")
     .map(String)
-    .filter(Boolean);
-  const yearsExperience = Number(str(form, "yearsExperience")) || 0;
+    .filter((d): d is (typeof DISCIPLINES)[number] =>
+      (DISCIPLINES as readonly string[]).includes(d),
+    );
+  const yearsExperience = clamp(Number(str(form, "yearsExperience")) || 0, 0, 80);
 
   const fields: Record<string, string> = {};
   if (headline.length < 10)

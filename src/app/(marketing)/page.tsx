@@ -10,7 +10,12 @@ import {
 } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth";
-import { listInstructors, listUpcomingSessions, listVideos } from "@/lib/queries";
+import {
+  enrolledOfferingIds,
+  listInstructors,
+  listUpcomingSessions,
+  listVideos,
+} from "@/lib/queries";
 import { DISCIPLINES } from "@/lib/enums";
 import { DEFAULT_TIMEZONE } from "@/lib/time";
 import { InstructorCard } from "@/components/instructor-card";
@@ -23,11 +28,14 @@ export default async function LandingPage() {
   const user = await getCurrentUser();
   const tz = user?.timezone ?? DEFAULT_TIMEZONE;
 
-  const [instructors, sessions, videos] = await Promise.all([
+  const [instructors, sessions, videos, enrolledIds] = await Promise.all([
     listInstructors(),
     listUpcomingSessions({ limit: 6 }),
     listVideos({ viewerId: user?.id ?? null, limit: 3 }),
+    user ? enrolledOfferingIds(user.id) : Promise.resolve(new Set<string>()),
   ]);
+
+  const cardViewer = { signedIn: !!user, enrolledOfferingIds: enrolledIds };
 
   return (
     <>
@@ -98,7 +106,12 @@ export default async function LandingPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {sessions.map((s) => (
-              <SessionCard key={s.id} session={s} timezone={tz} />
+              <SessionCard
+                key={s.id}
+                session={s}
+                timezone={tz}
+                viewer={cardViewer}
+              />
             ))}
           </div>
         )}

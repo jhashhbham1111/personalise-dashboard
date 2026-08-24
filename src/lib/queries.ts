@@ -17,6 +17,7 @@ import {
   videoAssets,
 } from "@/db";
 import { BookingStatus, EnrollmentStatus, SessionStatus, Visibility } from "./enums";
+import { canonicalCity, cityKey } from "./utils";
 
 /**
  * Read queries shared across pages.
@@ -54,7 +55,11 @@ export async function listInstructors(filters?: {
     conditions.push(like(instructorProfiles.disciplines, `%"${filters.discipline}"%`));
   }
   if (filters?.city) {
-    conditions.push(eq(instructorProfiles.city, filters.city));
+    // Compared case-insensitively rather than with eq(): cities are normalised
+    // on write now, but rows saved before that still hold "delhi" alongside
+    // "Delhi", and a filter that silently omits half a city is worse than a
+    // slightly slower comparison.
+    conditions.push(sql`lower(${instructorProfiles.city}) = ${cityKey(filters.city)}`);
   }
   if (filters?.q) {
     const term = `%${filters.q}%`;
@@ -87,14 +92,81 @@ export async function listInstructors(filters?: {
     .orderBy(desc(instructorProfiles.ratingAvg), asc(users.name));
 }
 
+/**
+ * Collapses rows that differ only by case or spacing into one option, keeping
+ * the tidiest spelling of each. SELECT DISTINCT alone returned "Delhi" and
+ * "delhi" as two entries that each filtered to a different half of the city.
+ */
+function dedupeCities(values: (string | null)[]): string[] {
+  const byKey = new Map<string, string>();
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (!trimmed) continue;
+    const key = cityKey(trimmed);
+    const canonical = canonicalCity(trimmed);
+    // Prefer the already-canonical spelling if any row has it, so the dropdown
+    // shows "Delhi" rather than whichever row happened to be read first.
+    if (!byKey.has(key) || trimmed === canonical) byKey.set(key, canonical);
+  }
+  return [...byKey.values()].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Which classes this student already holds an active pass for.
+ *
+ * One query per page rather than one per card — the listing pages use it to
+ * label each card's button with what will actually happen when it's tapped.
+ */
+export async function enrolledOfferingIds(
+  studentId: string,
+): Promise<Set<string>> {
+  const rows = await db
+    .selectDistinct({ offeringId: enrollments.offeringId })
+    .from(enrollments)
+    .where(
+      and(
+        eq(enrollments.studentId, studentId),
+        eq(enrollments.status, EnrollmentStatus.ACTIVE),
+      ),
+    );
+  return new Set(rows.map((r) => r.offeringId));
+}
+
 /** Distinct cities that currently have a published instructor. */
 export async function instructorCities(): Promise<string[]> {
   const rows = await db
     .selectDistinct({ city: instructorProfiles.city })
     .from(instructorProfiles)
-    .where(publiclyVisibleInstructor)
-    .orderBy(asc(instructorProfiles.city));
-  return rows.map((r) => r.city).filter(Boolean);
+    .where(publiclyVisibleInstructor);
+  return dedupeCities(rows.map((r) => r.city));
+}
+
+/**
+ * Cities to offer on the class directory: where classes are actually held.
+ *
+ * Instructor cities alone left every venue city out of the dropdown, so an
+ * in-person class could be held in a city nobody could filter for.
+ */
+export async function classCities(): Promise<string[]> {
+  const [instructorRows, venueRows] = await Promise.all([
+    db
+      .selectDistinct({ city: instructorProfiles.city })
+      .from(instructorProfiles)
+      .where(publiclyVisibleInstructor),
+    db
+      .selectDistinct({ city: venues.city })
+      .from(venues)
+      .innerJoin(
+        instructorProfiles,
+        eq(instructorProfiles.id, venues.instructorId),
+      )
+      .where(and(publiclyVisibleInstructor, eq(venues.isActive, true))),
+  ]);
+
+  return dedupeCities([
+    ...instructorRows.map((r) => r.city),
+    ...venueRows.map((r) => r.city),
+  ]);
 }
 
 export async function getInstructorBySlug(slug: string) {
@@ -175,7 +247,18 @@ export async function listUpcomingSessions(filters?: {
   if (filters?.mode) conditions.push(eq(classSessions.mode, filters.mode));
   if (filters?.discipline)
     conditions.push(eq(offerings.discipline, filters.discipline));
-  if (filters?.city) conditions.push(eq(instructorProfiles.city, filters.city));
+  if (filters?.city) {
+    // A class's city is where it actually happens — its venue — falling back to
+    // the instructor's city for online classes, which have no venue. Matching
+    // only the instructor's city (as this did) hid every in-person class held
+    // somewhere other than where its instructor is based: a Delhi venue taught
+    // by a Bengaluru-based instructor was invisible under city=Delhi, while
+    // simultaneously appearing under city=Bengaluru with a Delhi address on
+    // the card.
+    conditions.push(
+      sql`lower(coalesce(nullif(${venues.city}, ''), ${instructorProfiles.city})) = ${cityKey(filters.city)}`,
+    );
+  }
 
   return db
     .select({

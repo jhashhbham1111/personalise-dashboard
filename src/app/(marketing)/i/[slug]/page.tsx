@@ -5,6 +5,7 @@ import { BadgeCheck, CalendarDays, Globe, Link2, MapPin, Star } from "lucide-rea
 
 import { getCurrentUser } from "@/lib/auth";
 import {
+  enrolledOfferingIds,
   getInstructorBySlug,
   instructorOfferings,
   listPosts,
@@ -52,13 +53,17 @@ export default async function InstructorPage({
   const tz = viewer?.timezone ?? DEFAULT_TIMEZONE;
   const { profile, user } = row;
 
-  const [offerings, sessions, videos, posts, reviews] = await Promise.all([
-    instructorOfferings(profile.id),
-    listUpcomingSessions({ instructorId: profile.id, limit: 9 }),
-    listVideos({ instructorId: profile.id, viewerId: viewer?.id ?? null, limit: 6 }),
-    listPosts(profile.id, 6),
-    listReviews(profile.id, 6),
-  ]);
+  const [offerings, sessions, videos, posts, reviews, enrolledIds] =
+    await Promise.all([
+      instructorOfferings(profile.id),
+      listUpcomingSessions({ instructorId: profile.id, limit: 9 }),
+      listVideos({ instructorId: profile.id, viewerId: viewer?.id ?? null, limit: 6 }),
+      listPosts(profile.id, 6),
+      listReviews(profile.id, 6),
+      viewer ? enrolledOfferingIds(viewer.id) : Promise.resolve(new Set<string>()),
+    ]);
+
+  const cardViewer = { signedIn: !!viewer, enrolledOfferingIds: enrolledIds };
 
   const disciplines = parseList<string>(profile.disciplines);
   const languages = parseList<string>(profile.languages);
@@ -188,6 +193,7 @@ export default async function InstructorPage({
                       session={s}
                       timezone={tz}
                       showInstructor={false}
+                      viewer={cardViewer}
                     />
                   ))}
                 </div>

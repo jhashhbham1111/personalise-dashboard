@@ -72,6 +72,13 @@ export default async function EnrolPage({
     limit: 4,
   });
 
+  // `existing` is this offering's enrolment specifically, which is all the
+  // cards on this page need — they're all sessions of this same class.
+  const cardViewer = {
+    signedIn: !!viewer,
+    enrolledOfferingIds: new Set(existing ? [offering.id] : []),
+  };
+
   const activePlans = offering.plans.filter((p) => p.isActive);
 
   return (
@@ -156,6 +163,7 @@ export default async function EnrolPage({
                     session={s}
                     timezone={tz}
                     showInstructor={false}
+                    viewer={cardViewer}
                   />
                 ))}
               </div>

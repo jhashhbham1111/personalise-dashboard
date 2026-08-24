@@ -4,10 +4,11 @@ import { Search, UserSearch } from "lucide-react";
 import { instructorCities, listInstructors } from "@/lib/queries";
 import { DISCIPLINES } from "@/lib/enums";
 import { InstructorCard } from "@/components/instructor-card";
+import { ButtonLink } from "@/components/ui/button";
 import { EmptyState, PageHeader } from "@/components/ui/page";
 import { FilterBar, FilterChips, FilterSelect } from "@/components/filter-bar";
 import { Input } from "@/components/ui/input";
-import { pluralize } from "@/lib/utils";
+import { listFilters, pluralize } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Find an instructor",
@@ -30,6 +31,12 @@ export default async function InstructorsPage({
     }),
     instructorCities(),
   ]);
+
+  const activeFilters = [
+    params.q && "search",
+    params.discipline && "discipline",
+    params.city && "city",
+  ].filter(Boolean) as string[];
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -77,11 +84,26 @@ export default async function InstructorsPage({
       </p>
 
       {instructors.length === 0 ? (
+        /*
+         * Telling someone to "try clearing a filter" without giving them a way
+         * to do it is the whole complaint: the filters live in the URL, so the
+         * only route back was editing the address bar or hunting the controls
+         * back down the page.
+         */
         <EmptyState
           className="mt-4"
           icon={<UserSearch className="h-8 w-8" />}
           title="No instructors match that yet"
-          description="Try clearing a filter, or search for a different discipline."
+          description={
+            activeFilters.length > 0
+              ? `Nothing matches your ${listFilters(activeFilters)}.`
+              : "No instructors have published a page yet. Check back soon."
+          }
+          action={
+            activeFilters.length > 0 ? (
+              <ButtonLink href="/instructors">Clear filters</ButtonLink>
+            ) : undefined
+          }
         />
       ) : (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

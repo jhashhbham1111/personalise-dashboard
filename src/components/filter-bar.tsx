@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { cn } from "@/lib/utils";
 import { Select } from "./ui/input";
@@ -71,7 +71,16 @@ export function FilterSelect({
   );
 }
 
-/** A date input that applies as soon as a date is picked. */
+/**
+ * A date input that applies itself — after the value stops changing.
+ *
+ * Submitting straight from `onChange` works for the picker (one change, one
+ * submit) but breaks typing: a date input fires a change per segment, and the
+ * half-finished values along the way are real dates. Typing 24 into the day of
+ * "2026-08-__" passes through "2026-08-02", which submitted, navigated, and
+ * reset the field before the 4 was ever typed. Waiting for a pause, and
+ * submitting immediately on blur, makes both paths behave.
+ */
 export function FilterDate({
   name,
   label,
@@ -81,13 +90,44 @@ export function FilterDate({
   label: string;
   defaultValue?: string;
 }) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // What the URL already reflects. Guards against a blur that follows no edit
+  // at all — tabbing through the field shouldn't reload the page.
+  const applied = useRef(defaultValue ?? "");
+
+  function cancelPending() {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+  }
+
+  useEffect(() => cancelPending, []);
+
   return (
     <input
       type="date"
       name={name}
       defaultValue={defaultValue}
       aria-label={label}
-      onChange={(e) => e.currentTarget.form?.requestSubmit()}
+      onChange={(e) => {
+        const form = e.currentTarget.form;
+        const value = e.currentTarget.value;
+        cancelPending();
+        timer.current = setTimeout(() => {
+          applied.current = value;
+          form?.requestSubmit();
+        }, 800);
+      }}
+      onBlur={(e) => {
+        // Done editing — no reason to make them wait out the debounce.
+        const form = e.currentTarget.form;
+        const value = e.currentTarget.value;
+        cancelPending();
+        if (value === applied.current) return;
+        applied.current = value;
+        form?.requestSubmit();
+      }}
       className={cn(
         "h-10 w-auto min-w-40 rounded-lg border border-line-strong bg-surface px-3",
         "text-sm text-ink transition-colors",
