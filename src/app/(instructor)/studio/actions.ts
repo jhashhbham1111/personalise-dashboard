@@ -41,6 +41,7 @@ import {
   SessionStatus,
 } from "@/lib/enums";
 import { notify } from "@/lib/notify";
+import { isValidUpiId, normaliseUpiId } from "@/lib/payment-details";
 import { materializeSessions } from "@/lib/scheduling";
 import {
   bool,
@@ -99,11 +100,24 @@ export async function saveProfileAction(
   }
   if (!city) return fail("Which city are you based in?", { city: "Required." });
 
+  // Checked because a wrong UPI ID fails silently and late: the student scans
+  // or types it, their app says "invalid", and the instructor never hears
+  // about it — they just don't get paid.
+  const upiId = str(form, "upiId");
+  if (upiId && !isValidUpiId(upiId)) {
+    return fail("That UPI ID doesn't look right.", {
+      upiId: "It should look like yourname@bank — check for a typo.",
+    });
+  }
+
   await db
     .update(instructorProfiles)
     .set({
       headline,
       city,
+      upiId: upiId ? normaliseUpiId(upiId) : null,
+      bankDetails: str(form, "bankDetails") || null,
+      paymentNote: str(form, "paymentNote") || null,
       bio: str(form, "bio"),
       yearsExperience: num(form, "yearsExperience"),
       disciplines: stringifyList(strList(form, "disciplines")),
@@ -892,10 +906,20 @@ export async function voidPaymentAction(
 
 /* ------------------------------------------------------------ pass codes */
 
+/**
+ * Carries the freshly-minted codes back to the UI.
+ *
+ * This used to return only a count — "50 codes created." — and drop the codes
+ * on the floor, leaving the instructor to hunt them out of a paginated table
+ * and copy them one at a time. Handing them straight back is what makes a
+ * batch of fifty usable.
+ */
+export type GenerateCodesState = ActionState & { codes?: string[] };
+
 export async function generatePassCodesAction(
-  _prev: ActionState,
+  _prev: GenerateCodesState,
   form: FormData,
-): Promise<ActionState> {
+): Promise<GenerateCodesState> {
   const user = await requireInstructor();
 
   const planId = str(form, "planId");
@@ -914,9 +938,10 @@ export async function generatePassCodesAction(
   if (!result.ok) return fail(result.error);
 
   revalidatePath("/studio/codes");
-  return ok(
-    `${result.codes.length} code${result.codes.length === 1 ? "" : "s"} created.`,
-  );
+  return {
+    success: `${result.codes.length} code${result.codes.length === 1 ? "" : "s"} created.`,
+    codes: result.codes,
+  };
 }
 
 export async function revokePassCodeAction(

@@ -11,6 +11,7 @@ import { Alert } from "@/components/ui/page";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { PayInstructor } from "@/components/pay-instructor";
 
 type Plan = {
   id: string;
@@ -34,6 +35,7 @@ export function PlanPicker({
   returnTo,
   onlinePayments,
   instructorName,
+  payment,
 }: {
   plans: Plan[];
   isSignedIn: boolean;
@@ -41,6 +43,13 @@ export function PlanPicker({
   /** When false, students pay the instructor directly and there's no checkout. */
   onlinePayments: boolean;
   instructorName: string;
+  /** Null when the instructor hasn't filled any of it in yet. */
+  payment: {
+    upiId: string | null;
+    upiQrDataUri: string | null;
+    bankDetails: string | null;
+    paymentNote: string | null;
+  } | null;
 }) {
   const [state, action] = useActionState(enrolAction, emptyState);
   // Default to the best-value plan rather than the cheapest — it's the one most
@@ -126,12 +135,23 @@ export function PlanPicker({
               <li>
                 1. {isSignedIn ? "You already have an account." : "Create your free account."}
               </li>
-              <li>2. Pay {instructorName} directly — cash, UPI or bank transfer.</li>
+              <li>
+                2. Pay {instructorName}
+                {payment ? "" : " directly — cash, UPI or bank transfer"}.
+              </li>
               <li>
                 3. They&rsquo;ll activate your pass here, and you can start
                 booking classes straight away.
               </li>
             </ol>
+
+            {/* The step above is the moment someone decides to buy. Leaving it
+                at "pay them directly" with no ID, no QR and no account number
+                is where that decision died. */}
+            {payment ? (
+              <PayInstructor instructorName={instructorName} {...payment} />
+            ) : null}
+
             {!isSignedIn ? (
               <ButtonLink
                 href={`/login?next=${encodeURIComponent(returnTo)}`}

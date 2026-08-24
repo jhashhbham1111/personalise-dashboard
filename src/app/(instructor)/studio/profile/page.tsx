@@ -83,6 +83,9 @@ export default async function StudioProfilePage() {
           instagramUrl: profile.instagramUrl,
           youtubeUrl: profile.youtubeUrl,
           websiteUrl: profile.websiteUrl,
+          upiId: profile.upiId,
+          bankDetails: profile.bankDetails,
+          paymentNote: profile.paymentNote,
         }}
       />
 

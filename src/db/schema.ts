@@ -79,6 +79,20 @@ export const instructorProfiles = sqliteTable(
     instagramUrl: text("instagram_url"),
     youtubeUrl: text("youtube_url"),
     websiteUrl: text("website_url"),
+    /**
+     * How a student actually hands over the money.
+     *
+     * While `ONLINE_PAYMENTS=off` the enrol page tells students to pay their
+     * instructor directly — and used to stop there, with no UPI ID, no account
+     * number, nothing. Someone who had decided to buy had no way to, which is
+     * the worst possible place to lose them. These are shown on the enrol page
+     * and nowhere else; the QR is generated from `upiId` at render time rather
+     * than uploaded, so there's no image handling and no way for the two to
+     * disagree.
+     */
+    upiId: text("upi_id"),
+    bankDetails: text("bank_details"),
+    paymentNote: text("payment_note"),
     isVerified: integer("is_verified", { mode: "boolean" }).notNull().default(false),
     verifiedAt: integer("verified_at", { mode: "timestamp_ms" }),
     isPublished: integer("is_published", { mode: "boolean" }).notNull().default(false),

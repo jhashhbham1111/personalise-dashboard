@@ -76,7 +76,31 @@ export default async function SessionPage({
   const durationMin = Math.round(
     (session.endsAt.getTime() - session.startsAt.getTime()) / 60000,
   );
-  const isPast = session.endsAt < new Date();
+  const now = new Date();
+  const isPast = session.endsAt < now;
+
+  /*
+   * A pass being ACTIVE isn't the same as it being usable. `bookSession` also
+   * rejects an expired one and one with no credits left, but this page only
+   * checked the status — so someone whose pass had run out saw a live "Book my
+   * place" button, clicked it, and got an error. Working out *why* they can't
+   * book here means the panel can say the useful thing (top up / renew)
+   * instead of the button lying and then failing.
+   */
+  const passExpired =
+    !!activeEnrollment?.expiresAt && activeEnrollment.expiresAt < now;
+  const passSpent =
+    activeEnrollment != null &&
+    activeEnrollment.sessionsRemaining !== null &&
+    activeEnrollment.sessionsRemaining <= 0;
+  const passProblem: "expired" | "spent" | null = !activeEnrollment
+    ? null
+    : passExpired
+      ? "expired"
+      : passSpent
+        ? "spent"
+        : null;
+  const canBook = !!activeEnrollment && passProblem === null;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
@@ -222,7 +246,8 @@ export default async function SessionPage({
                     : null
                 }
                 waitlistPosition={existingBooking?.waitlistPosition ?? null}
-                hasEnrollment={!!activeEnrollment}
+                hasEnrollment={canBook}
+                passProblem={passProblem}
                 sessionsRemaining={activeEnrollment?.sessionsRemaining ?? null}
                 startsAt={session.startsAt}
                 endsAt={session.endsAt}

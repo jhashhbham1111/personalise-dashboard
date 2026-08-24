@@ -14,6 +14,7 @@ import {
   OFFERING_TYPE_LABEL,
 } from "@/lib/enums";
 import { env } from "@/lib/env";
+import { hasPaymentDetails, upiQrDataUri } from "@/lib/payment-details";
 import { DEFAULT_TIMEZONE, formatDuration } from "@/lib/time";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +81,27 @@ export default async function EnrolPage({
   };
 
   const activePlans = offering.plans.filter((p) => p.isActive);
+
+  /*
+   * Only assembled when online payments are off — that's the only mode where
+   * the student pays the instructor directly and therefore needs to know how.
+   * The QR is rendered here rather than stored, so it can never drift from the
+   * UPI ID beside it.
+   */
+  const details = {
+    upiId: row.profile.upiId,
+    bankDetails: row.profile.bankDetails,
+    paymentNote: row.profile.paymentNote,
+  };
+  const payment =
+    !env.onlinePayments && hasPaymentDetails(details)
+      ? {
+          ...details,
+          upiQrDataUri: details.upiId
+            ? await upiQrDataUri(details.upiId, row.user.name)
+            : null,
+        }
+      : null;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
@@ -221,6 +243,7 @@ export default async function EnrolPage({
               returnTo={`/i/${slug}/enrol/${offeringSlug}`}
               onlinePayments={env.onlinePayments}
               instructorName={row.user.name}
+              payment={payment}
             />
           )}
         </aside>

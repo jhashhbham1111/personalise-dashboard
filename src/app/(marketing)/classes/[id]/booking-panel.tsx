@@ -24,6 +24,7 @@ export function BookingPanel({
   existingStatus,
   waitlistPosition,
   hasEnrollment,
+  passProblem,
   sessionsRemaining,
   startsAt,
   endsAt,
@@ -39,7 +40,10 @@ export function BookingPanel({
   cancelled: boolean;
   existingStatus: string | null;
   waitlistPosition: number | null;
+  /** True only when the pass will actually let them book — see the page. */
   hasEnrollment: boolean;
+  /** Why an existing pass won't work, when that's the reason. */
+  passProblem: "expired" | "spent" | null;
   sessionsRemaining: number | null;
   startsAt: Date;
   endsAt: Date;
@@ -152,23 +156,43 @@ export function BookingPanel({
     );
   }
 
-  // Signed in but no pass for this offering yet.
+  // Signed in, but the pass either doesn't exist or won't work.
   if (!hasEnrollment) {
+    /*
+     * Three different situations that all end at the same place — the price
+     * list — but for reasons the student needs told apart. "You need a pass"
+     * is confusing to someone who knows they bought one last month; they need
+     * to hear that it ran out, or ran over.
+     */
+    const message =
+      passProblem === "spent"
+        ? "You've used every class on your pass. Top it up to book more."
+        : passProblem === "expired"
+          ? "Your pass for this class has expired. Renew it to book again."
+          : "You need a pass for this class before you can book a session. Drop-in passes start from a single class.";
+
     return (
       <div>
         <p className="font-semibold text-ink">
           {isFull ? "This class is full" : `${pluralize(seatsLeft, "seat")} left`}
         </p>
-        <p className="mt-1.5 text-sm text-ink-soft">
-          You need a pass for this class before you can book a session. Drop-in
-          passes start from a single class.
-        </p>
+        <p className="mt-1.5 text-sm text-ink-soft">{message}</p>
         <ButtonLink
           href={`/i/${instructorSlug}/enrol/${offeringSlug}`}
           block
           className="mt-4"
         >
-          See passes & prices
+          {passProblem ? "Top up your pass" : "See passes & prices"}
+        </ButtonLink>
+        {/* Someone whose pass just ran out is exactly who an instructor hands
+            a fresh code to. */}
+        <ButtonLink
+          href="/dashboard/redeem"
+          variant="secondary"
+          block
+          className="mt-2"
+        >
+          Redeem a pass code
         </ButtonLink>
       </div>
     );

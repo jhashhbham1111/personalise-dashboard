@@ -14,6 +14,7 @@ import {
   DEFAULT_TIMEZONE,
   formatLongDate,
   fromDateInput,
+  toDateInput,
 } from "@/lib/time";
 import { SessionCard } from "@/components/session-card";
 import { ButtonLink } from "@/components/ui/button";
@@ -55,6 +56,10 @@ const RANGES = [
   { value: "14", label: "Next 2 weeks" },
   { value: "30", label: "Next month" },
   { value: "all", label: "Everything scheduled" },
+  // Picking a date and still being shown the following week's classes is the
+  // opposite of what choosing a date means. This is the "that day only" mode
+  // the date box implied but never had.
+  { value: "day", label: "That day only" },
 ] as const;
 
 const DEFAULT_RANGE = "7";
@@ -87,8 +92,18 @@ export default async function ClassesPage({
   // scrolling from today.
   const from = params.from ? fromDateInput(params.from, tz) : undefined;
   const rangeStart = from ?? new Date();
-  const to =
-    within === "all" ? undefined : addDays(rangeStart, Number(within));
+  // "That day only" is meaningless without a date, so it falls back to today —
+  // which is a genuinely useful "what's on today?".
+  const singleDay = within === "day";
+  const dayStart = singleDay
+    ? (from ?? fromDateInput(toDateInput(new Date(), tz), tz))
+    : rangeStart;
+  const to = singleDay
+    ? addDays(dayStart, 1)
+    : within === "all"
+      ? undefined
+      : addDays(rangeStart, Number(within));
+  const windowStart = singleDay ? dayStart : from;
 
   const [sessions, cities, enrolledIds] = await Promise.all([
     listUpcomingSessions({
@@ -96,7 +111,7 @@ export default async function ClassesPage({
       city: params.city,
       mode: params.mode,
       instructorId: instructorRow?.profile.id,
-      from,
+      from: windowStart,
       to,
       limit: 120,
     }),
@@ -153,10 +168,14 @@ export default async function ClassesPage({
           defaultValue={within}
           options={RANGES.map((r) => ({ value: r.value, label: r.label }))}
         />
+        {/* The label is visible, not just announced: an unlabelled date box
+            beside three dropdowns gives a sighted user no clue what date it
+            means — start date, class date, something else. */}
         <FilterDate
           name="from"
-          label="Starting from"
+          label={singleDay ? "On" : "From"}
           defaultValue={params.from ?? ""}
+          showLabel
         />
         <FilterSelect
           name="mode"
@@ -194,9 +213,15 @@ export default async function ClassesPage({
         className="mt-4"
       />
 
+      {/* Says which dates are being shown, rather than "in the next 7 days"
+          while a date is set and the results start somewhere else entirely. */}
       <p className="mt-6 text-sm text-ink-soft">
-        {pluralize(sessions.length, "class", "classes")} in the{" "}
-        {rangeLabel.toLowerCase()}
+        {pluralize(sessions.length, "class", "classes")}{" "}
+        {singleDay
+          ? `on ${formatLongDate(dayStart, tz)}`
+          : from
+            ? `in the ${Number(within) ? `${within} days` : "time"} from ${formatLongDate(from, tz)}`
+            : `in the ${rangeLabel.toLowerCase()}`}
         {sessions.length === 120 ? " (showing the first 120)" : ""}
       </p>
 

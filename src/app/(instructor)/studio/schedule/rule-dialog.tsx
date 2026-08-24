@@ -161,12 +161,24 @@ export function RuleDialog({
         </fieldset>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Start time" htmlFor="startTime">
+          <Field label="Start time" htmlFor="startTime" hint="in 5-minute steps">
             <Input
               id="startTime"
               name="startTime"
               type="time"
-              defaultValue={minutesToTimeInput(rule?.startTimeMinutes ?? 390)}
+              /* Without a step the browser offers every minute of the hour —
+                 sixty entries to scroll for a class that starts at 07:30.
+                 Five-minute steps match how classes are actually scheduled
+                 and match the Length field below. */
+              step={300}
+              /* Rounded to match the step. A rule saved before this existed
+                 could sit on an off-step minute, and the browser would then
+                 refuse to submit the form at all — showing a rounded time they
+                 can see and adjust beats a save button that silently does
+                 nothing. */
+              defaultValue={minutesToTimeInput(
+                Math.round((rule?.startTimeMinutes ?? 390) / 5) * 5,
+              )}
               required
             />
           </Field>

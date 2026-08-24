@@ -25,6 +25,9 @@ export function ProfileForm({
     instagramUrl: string | null;
     youtubeUrl: string | null;
     websiteUrl: string | null;
+    upiId: string | null;
+    bankDetails: string | null;
+    paymentNote: string | null;
   };
 }) {
   const [state, action] = useActionState(saveProfileAction, emptyState);
@@ -174,6 +177,65 @@ export function ProfileForm({
             name="websiteUrl"
             type="url"
             defaultValue={initial.websiteUrl ?? ""}
+          />
+        </Field>
+      </Card>
+
+      {/* Not on the public page — only on the enrol page, to the student who
+          is deciding to buy. That's the one place "pay me directly" needs an
+          answer, and the one place it used to be missing. */}
+      <Card className="space-y-4 p-5">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-faint">
+            How students pay you
+          </h2>
+          <p className="mt-1.5 text-sm text-ink-soft">
+            Shown to a student on the page where they choose a pass. Without
+            this they&rsquo;re told to pay you and given no way to do it.
+          </p>
+        </div>
+
+        <Field
+          label="UPI ID"
+          htmlFor="upiId"
+          hint="a scannable QR is generated from this"
+          error={state.fields?.upiId}
+        >
+          <Input
+            id="upiId"
+            name="upiId"
+            defaultValue={initial.upiId ?? ""}
+            placeholder="yourname@okhdfcbank"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </Field>
+
+        <Field
+          label="Bank details"
+          htmlFor="bankDetails"
+          hint="optional — for anyone who'd rather transfer"
+        >
+          <Textarea
+            id="bankDetails"
+            name="bankDetails"
+            rows={3}
+            defaultValue={initial.bankDetails ?? ""}
+            placeholder={"Ananya Iyer\nHDFC Bank · 50100XXXXXXXXX\nIFSC HDFC0000123"}
+          />
+        </Field>
+
+        <Field
+          label="Anything else they should know"
+          htmlFor="paymentNote"
+          hint="optional"
+        >
+          <Textarea
+            id="paymentNote"
+            name="paymentNote"
+            rows={2}
+            defaultValue={initial.paymentNote ?? ""}
+            placeholder="Send me a screenshot on WhatsApp after paying and I'll send your pass code."
           />
         </Field>
       </Card>

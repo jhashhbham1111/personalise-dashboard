@@ -29,11 +29,21 @@ export default async function PassesPage() {
       <section>
         <SectionTitle>Active</SectionTitle>
         {active.length === 0 ? (
+          /* This is where someone holding a pass code looks first, and it used
+             to send them to the instructor directory instead — the one place
+             their code is no use. */
           <EmptyState
             icon={<Ticket className="h-8 w-8" />}
             title="No active passes"
-            description="Enrol with an instructor to start booking classes."
-            action={<ButtonLink href="/instructors">Browse instructors</ButtonLink>}
+            description="Got a pass code from your instructor? Redeem it here and your pass activates straight away. Otherwise, find an instructor to enrol with."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <ButtonLink href="/dashboard/redeem">Redeem a code</ButtonLink>
+                <ButtonLink href="/instructors" variant="secondary">
+                  Browse instructors
+                </ButtonLink>
+              </div>
+            }
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

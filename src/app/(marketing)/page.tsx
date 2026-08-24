@@ -197,7 +197,7 @@ export default async function LandingPage() {
                 {
                   icon: MonitorPlay,
                   title: "Live classes in-app",
-                  body: "Your own room with screen share and recording. No Zoom link.",
+                  body: "Your own room with screen share and recording, built in.",
                 },
               ].map((f) => {
                 const Icon = f.icon;

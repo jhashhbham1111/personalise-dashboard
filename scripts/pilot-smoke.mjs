@@ -79,7 +79,11 @@ try {
   const bodyText = (await student.locator("body").innerText()).toLowerCase();
   check(
     "the page explains how to pay the instructor instead",
-    bodyText.includes("pay") && bodyText.includes("directly"),
+    // Two acceptable shapes: the instructor has filled in payment details, in
+    // which case the page names them ("Paying Ananya" + a UPI ID or bank
+    // block); or they haven't, and it falls back to "pay them directly".
+    bodyText.includes("pay") &&
+      (bodyText.includes("directly") || bodyText.includes("paying ")),
   );
   check("prices are still shown", /₹|rs\.?\s?\d/i.test(bodyText));
 

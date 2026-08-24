@@ -85,10 +85,13 @@ export function FilterDate({
   name,
   label,
   defaultValue,
+  showLabel = false,
 }: {
   name: string;
   label: string;
   defaultValue?: string;
+  /** Renders the label beside the box instead of only to screen readers. */
+  showLabel?: boolean;
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // What the URL already reflects. Guards against a blur that follows no edit
@@ -104,12 +107,13 @@ export function FilterDate({
 
   useEffect(() => cancelPending, []);
 
-  return (
+  const input = (
     <input
       type="date"
       name={name}
+      id={showLabel ? `filter-${name}` : undefined}
       defaultValue={defaultValue}
-      aria-label={label}
+      aria-label={showLabel ? undefined : label}
       onChange={(e) => {
         const form = e.currentTarget.form;
         const value = e.currentTarget.value;
@@ -134,6 +138,20 @@ export function FilterDate({
         "focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500",
       )}
     />
+  );
+
+  if (!showLabel) return input;
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <label
+        htmlFor={`filter-${name}`}
+        className="text-sm font-medium text-ink-soft"
+      >
+        {label}
+      </label>
+      {input}
+    </span>
   );
 }
 

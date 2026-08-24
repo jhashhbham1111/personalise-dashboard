@@ -131,8 +131,15 @@ export default async function DashboardPage({
           <EmptyState
             icon={<Ticket className="h-8 w-8" />}
             title="No active passes"
-            description="Enrol with an instructor to start booking their classes."
-            action={<ButtonLink href="/instructors">Find an instructor</ButtonLink>}
+            description="Got a pass code from your instructor? Redeem it here. Otherwise, find an instructor to enrol with."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <ButtonLink href="/dashboard/redeem">Redeem a code</ButtonLink>
+                <ButtonLink href="/instructors" variant="secondary">
+                  Find an instructor
+                </ButtonLink>
+              </div>
+            }
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

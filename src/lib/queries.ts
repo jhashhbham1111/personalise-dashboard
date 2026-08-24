@@ -1,6 +1,20 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, gte, inArray, like, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  like,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import {
   bookings,
@@ -112,14 +126,20 @@ function dedupeCities(values: (string | null)[]): string[] {
 }
 
 /**
- * Which classes this student already holds an active pass for.
+ * Which classes this student holds a *usable* pass for.
  *
  * One query per page rather than one per card — the listing pages use it to
  * label each card's button with what will actually happen when it's tapped.
+ *
+ * "Usable" deliberately matches what `bookSession` will accept: ACTIVE alone
+ * isn't enough, since an expired pass and one with no credits left are both
+ * still ACTIVE. Labelling those cards "Book" produces a button that fails on
+ * click, which is exactly the thing these labels exist to prevent.
  */
 export async function enrolledOfferingIds(
   studentId: string,
 ): Promise<Set<string>> {
+  const now = new Date();
   const rows = await db
     .selectDistinct({ offeringId: enrollments.offeringId })
     .from(enrollments)
@@ -127,6 +147,15 @@ export async function enrolledOfferingIds(
       and(
         eq(enrollments.studentId, studentId),
         eq(enrollments.status, EnrollmentStatus.ACTIVE),
+        or(
+          isNull(enrollments.expiresAt),
+          gte(enrollments.expiresAt, now),
+        )!,
+        // null = unlimited, so only a zero-or-below number disqualifies.
+        or(
+          isNull(enrollments.sessionsRemaining),
+          gt(enrollments.sessionsRemaining, 0),
+        )!,
       ),
     );
   return new Set(rows.map((r) => r.offeringId));
