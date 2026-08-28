@@ -22,7 +22,7 @@ export const LEGAL = {
   operatorName: "TODO: registered name of the business or person operating Personalise",
 
   /** A mailbox a real person reads. It appears on every legal page. */
-  supportEmail: "TODO: support@your-domain.com",
+  supportEmail: "nirmata@koshcloud.com",
 
   /** Full postal address, including city, state and PIN code. Razorpay verifies this. */
   address: "TODO: street, city, state, PIN code, India",
@@ -31,5 +31,5 @@ export const LEGAL = {
   phone: "TODO: +91 00000 00000",
 
   /** The date these documents were last reviewed, e.g. "12 September 2026". */
-  lastUpdated: "TODO: date these pages were last reviewed",
+  lastUpdated: "28 August 2026",
 };
