@@ -95,17 +95,25 @@ specific problem printed in the deployment log. That's deliberate: every one of
 these previously produced a deploy that came up healthy and quietly did the
 wrong thing.
 
-**Live video is also off by default** (`LIVE_PROVIDER` unset ⇒ mock — instructor
-and student never actually see each other). Add one variable to turn on real
-video for free:
+Two more, once you build the Android app (see `PLAYSTORE.md`). Both are read by
+`/.well-known/assetlinks.json`, which 404s until they are set — and a TWA whose
+assetlinks don't verify shows a browser URL bar over your app:
 
 | Variable | Value | Why |
 |---|---|---|
-| `LIVE_PROVIDER` | `jitsi` | Turns on real video via Jitsi's free public server |
+| `ANDROID_PACKAGE_NAME` | `app.personalise.twa` | The package Bubblewrap generated |
+| `ANDROID_SHA256_FINGERPRINTS` | `AA:BB:…,CC:DD:…` | Comma-separated. **Both** the upload key and the Play App Signing key — listing only the upload key works on your own device and fails on every store install |
 
-Nothing else is required — `meet.jit.si` needs no account or keys. See §2.7 for
-what this mode can and can't do, and how to move to LiveKit or a self-hosted
-Jitsi later if you outgrow it.
+**Live video is off** (`LIVE_PROVIDER` unset ⇒ mock — instructor and student
+never actually see each other). This is deferred for the pilot: run online
+classes on whatever you use today and put the joining link on the class. §2.7 compares the
+options for when you come back to it — the short version is **LiveKit's free
+tier**, not `meet.jit.si`, which now forces a Google login on whoever opens
+the room.
+
+Whatever you set, `/admin/diagnostics` on the deployed site reports what each
+provider is *actually* configured to do — that page exists because every mock
+in this app succeeds, so a misconfigured deployment looks perfectly healthy.
 
 ### 2.5 Cron
 
@@ -154,11 +162,23 @@ deliver. Until then every send is rejected. Failures now appear in the runtime
 logs prefixed `[notify]` — check there first if someone says they got no
 reminder.
 
-### 2.7 Live video — Jitsi (free)
+### 2.7 Live video — the options
 
-Set `LIVE_PROVIDER=jitsi` and redeploy. That's the whole setup — `meet.jit.si`
-is Jitsi's own public server, so there's no account to create and no keys to
-add.
+> **`meet.jit.si` is a dead end — don't use it.** Since 24 August 2023 Jitsi's
+> public server requires whoever *creates* a room to sign in with Google,
+> GitHub or Facebook, and Jitsi's own docs say meet.jit.si "is not meant for
+> use in production applications". That kills the flow: your instructor would
+> hit a Google login before every class. The rest of this section is kept
+> because the code still works against a **self-hosted** Jitsi (`JITSI_DOMAIN`).
+>
+> **The recommendation is LiveKit.** Its free Build tier needs no card and
+> includes 5,000 participant-minutes/month, and the integration code is already
+> in this repo (`src/lib/live/livekit.ts`), untested. Alternatives compared:
+> Daily.co (10,000 min/mo), Agora (10,000 min/mo, but **suspends the account
+> two days after you exceed it**), self-hosted Jitsi (~₹1,700–8,500/mo plus
+> TURN setup), JaaS (25 monthly active users free).
+
+The setup below applies to a Jitsi server you host yourself.
 
 **What changes for the class room.** Every other provider (`mock`, `livekit`)
 renders this app's own video grid and controls. Jitsi is different: joining a
@@ -189,8 +209,13 @@ up.
 ## 3. Before you invite anyone
 
 - [ ] `curl https://your-domain/api/health` returns `{"ok":true}`
+- [ ] Sign in as admin and open `/admin/diagnostics` — Email must say **Sending**
+      and Database must say **Healthy**. Anything red there is a thing the app
+      will do silently and wrongly, not a thing it will complain about
 - [ ] Sign up as a test student, and check the confirmation email actually arrives
-- [ ] Create a test instructor, verify them in `/admin/instructors`
+- [ ] Create a test instructor and confirm they do **not** appear in
+      `/instructors` before you verify them, and do after
+- [ ] Fill in their UPI/bank details and check they show on the enrol page
 - [ ] Create a class and finish all three setup steps — details, price, schedule
 - [ ] Generate a pass code, redeem it as the student, confirm the pass activates
 - [ ] Record a cash payment by hand too, confirm it also activates
@@ -206,11 +231,31 @@ up.
 
 1. They sign up at `/signup` choosing "I want to teach".
 2. They complete the onboarding profile (bio, disciplines, city).
-3. **You verify them** in `/admin/instructors` — unverified instructors don't
-   appear in search.
-4. They add classes (Studio → Classes), each with at least one pass/price.
-5. They add a schedule (Studio → Schedule) — this generates dated sessions.
-6. They publish their public page (Studio → Public page).
+3. They add classes (Studio → Classes), each with at least one pass/price.
+4. They add a schedule (Studio → Schedule) — this generates dated sessions.
+5. They fill in **how students pay them** (Studio → More → My profile): UPI ID,
+   bank details, or a note. Without this the enrol page tells students to pay
+   them and gives no way to do it.
+6. They publish their page (Studio → More → My profile).
+7. **You verify them** in `/admin/instructors`.
+
+**Three separate switches decide whether a student can find an instructor**,
+and all three must be on:
+
+| Switch | Who controls it | Off means |
+|---|---|---|
+| Published | the instructor | Their page is hidden; nobody but them can see it |
+| Verified | **you**, in `/admin/instructors` | Same — hidden from the directory, class listings and search |
+| Not suspended | you, in `/admin/instructors` | Same, and it outranks the instructor's own publish switch |
+
+An unverified instructor can do everything in Studio and preview their own
+page, but no student will find them and their direct links 404 for the public.
+The instructor sees a "waiting to be verified" notice on their Studio overview
+so they don't sit wondering why nobody turns up.
+
+**`/admin/instructors` shows a count of profiles awaiting verification** — that
+number is your queue. Nothing emails you about it, so check it when you invite
+someone new.
 
 Worth telling them upfront: profile photos and class images can't be uploaded
 yet, so their page will look plain. It's the most-noticed gap — see §6.
@@ -278,11 +323,11 @@ Be upfront about these — pilot users forgive known limits and resent surprises
 | Gap | Impact | Workaround for now |
 |---|---|---|
 | No image upload | Instructor pages and class cards have no photos | Set expectations; it's the top thing to build next |
-| Live video is simulated by default | Instructor and student can't actually see each other in class | Set `LIVE_PROVIDER=jitsi` — free, no keys needed (see §2.7). Move to `LIVE_PROVIDER=livekit` later if you need in-app recording or tighter access control |
+| Live video is simulated | Instructor and student can't actually see each other in class | **Deferred for now** — run online classes on whatever you use today (Zoom/Meet/WhatsApp) and put the joining link on the class. LiveKit's free tier is the route back; see §2.7 |
 | No in-app messaging | Students can't ask questions before booking | Keep WhatsApp for conversation |
 | Reviews are display-only | Ratings stay at zero | Collect feedback out of band |
 | No refunds in-app | Instructor hands money back manually | Void the payment in Studio → Fees, then return the money directly |
-| Public nav hidden on mobile | Phone visitors see only the logo on marketing pages | Send deep links (`/i/slug`) rather than the homepage |
+| No instructor double-booking check | `findConflictingSessions()` exists in `src/lib/scheduling.ts` but nothing calls it, so two overlapping classes can be scheduled | Instructors see their own week in Studio → Schedule; watch for it there |
 | Invoice numbers are random | GST requires sequential numbering | Fine while money is offline; must change before charging in-app |
 | Notifications are email only | Indian students often won't read email | Follow up on WhatsApp for anything time-critical |
 

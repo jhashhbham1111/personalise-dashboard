@@ -34,12 +34,13 @@ export default async function StudioProfilePage() {
   return (
     <div className="max-w-2xl space-y-6">
       <PageHeader
-        title="Public page"
+        title="My profile"
         description="What students see before they decide to book with you."
       />
 
       <PublishToggle
         isPublished={profile.isPublished}
+        isVerified={profile.isVerified}
         slug={profile.slug}
         canPublish={(offeringCount?.n ?? 0) > 0}
         isSuspended={profile.isSuspended}
@@ -73,6 +74,8 @@ export default async function StudioProfilePage() {
 
       <ProfileForm
         initial={{
+          avatarUrl: user.avatarUrl,
+          coverImageUrl: profile.coverImageUrl,
           headline: profile.headline,
           bio: profile.bio,
           city: profile.city,

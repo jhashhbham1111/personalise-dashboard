@@ -44,7 +44,11 @@ export function OpenSoon({ opensAtISO }: { opensAtISO: string }) {
           {formatCountdown(remaining)}
         </p>
       ) : null}
-      <Button variant="secondary" className="mt-4" onClick={() => router.refresh()}>
+      <Button
+        variant="secondary"
+        className="mt-4 min-h-11 w-full sm:w-auto"
+        onClick={() => router.refresh()}
+      >
         Check again
       </Button>
     </div>

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { env } from "@/lib/env";
+
 import { Logo } from "./logo";
 
 const COLUMNS = [
@@ -23,6 +25,19 @@ const COLUMNS = [
     links: [
       { href: "/login", label: "Sign in" },
       { href: "/dashboard", label: "My classes" },
+      // Google Play requires this route to be reachable by someone who is not
+      // signed in, and reachable from outside the app, before it will accept a
+      // listing. Linking it here is how it satisfies both.
+      { href: "/account/delete", label: "Delete my account" },
+    ],
+  },
+  {
+    title: "Legal",
+    links: [
+      { href: "/legal/privacy", label: "Privacy policy" },
+      { href: "/legal/terms", label: "Terms of use" },
+      { href: "/legal/refunds", label: "Refunds & cancellations" },
+      { href: "/contact", label: "Contact us" },
     ],
   },
 ];
@@ -31,7 +46,7 @@ export function SiteFooter() {
   return (
     <footer className="mt-20 border-t border-line bg-surface">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <div className="grid gap-10 md:grid-cols-[1.5fr_repeat(3,1fr)]">
+        <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-[1.5fr_repeat(4,1fr)]">
           <div>
             <Logo />
             <p className="mt-3 max-w-xs text-sm text-ink-soft">
@@ -59,9 +74,16 @@ export function SiteFooter() {
           ))}
         </div>
 
+        {/*
+          This used to read "A demo application. All instructors, classes and
+          reviews shown are fictional." The instructors on the live site are
+          real people taking real bookings, so that line was not a stale note —
+          it was telling students their teacher was made up.
+        */}
         <p className="mt-10 border-t border-line pt-6 text-xs text-ink-faint">
-          A demo application. All instructors, classes and reviews shown are
-          fictional.
+          © {new Date().getFullYear()} {env.appName}. Classes are taught by
+          independent instructors, who set their own prices, schedules and
+          cancellation terms.
         </p>
       </div>
     </footer>

@@ -138,11 +138,11 @@ export function JitsiRoomView({
 
   if (loadError) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-neutral-950 px-4 text-center text-white">
+      <div className="flex h-dvh items-center justify-center bg-neutral-950 px-4 py-8 text-center text-white">
         <div className="max-w-sm">
           <h1 className="text-lg font-semibold">Couldn&apos;t load the video call</h1>
           <p className="mt-2 text-sm text-white/60">{loadError}</p>
-          <ButtonLink href={backHref} className="mt-6" variant="secondary">
+          <ButtonLink href={backHref} className="mt-6 min-h-11" variant="secondary">
             Back
           </ButtonLink>
         </div>
@@ -152,7 +152,10 @@ export function JitsiRoomView({
 
   return (
     <div className="flex h-dvh flex-col bg-neutral-950 text-white">
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+      {/* `flex-wrap` only bites below `md`: on a 360px screen the title and the
+          confirm-end row can't share a line, and without it the buttons get
+          squeezed to a few pixels wide rather than dropping to their own row. */}
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3 pt-[calc(0.75rem_+_env(safe-area-inset-top))]">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="flex items-center gap-1.5 rounded-full bg-danger-600/90 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">
             <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse-dot" />
@@ -163,12 +166,12 @@ export function JitsiRoomView({
 
         {isHost ? (
           confirmEnd ? (
-            <div className="flex shrink-0 items-center gap-2 rounded-full bg-neutral-800 px-3 py-1.5">
+            <div className="flex w-full shrink-0 items-center justify-center gap-2 rounded-full bg-neutral-800 px-3 py-1.5 md:w-auto">
               <span className="text-xs text-white/80">End for everyone?</span>
               <button
                 type="button"
                 onClick={() => setConfirmEnd(false)}
-                className="rounded-full px-2 py-1 text-xs text-white/60 hover:bg-white/10"
+                className="flex min-h-11 items-center rounded-full px-3 py-1 text-xs text-white/60 hover:bg-white/10 md:min-h-0 md:px-2"
               >
                 Cancel
               </button>
@@ -184,7 +187,7 @@ export function JitsiRoomView({
                   apiRef.current?.dispose();
                   router.push(backHref);
                 }}
-                className="rounded-full bg-danger-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-danger-700"
+                className="flex min-h-11 items-center rounded-full bg-danger-600 px-3.5 py-1 text-xs font-semibold text-white hover:bg-danger-700 md:min-h-0 md:px-2.5"
               >
                 End class
               </button>
@@ -193,7 +196,7 @@ export function JitsiRoomView({
             <button
               type="button"
               onClick={() => setConfirmEnd(true)}
-              className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-danger-600/80 hover:text-white"
+              className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-danger-600/80 hover:text-white md:min-h-0"
             >
               <PhoneOff className="h-3.5 w-3.5" /> End class
             </button>
@@ -201,7 +204,15 @@ export function JitsiRoomView({
         ) : null}
       </header>
 
-      <div ref={containerRef} className="min-h-0 flex-1" />
+      {/* Jitsi injects its iframe here and sizes it in percentages, so it needs a
+          parent with a real resolved height — `flex-1` inside the `h-dvh` column
+          gives it one, and the explicit child rule covers the case where Jitsi's
+          own inline sizing doesn't stick. The safe-area padding keeps Jitsi's
+          bottom toolbar clear of the phone's gesture bar; it is 0 elsewhere. */}
+      <div
+        ref={containerRef}
+        className="min-h-0 flex-1 pb-[env(safe-area-inset-bottom)] [&>iframe]:h-full [&>iframe]:w-full [&>iframe]:border-0"
+      />
     </div>
   );
 }

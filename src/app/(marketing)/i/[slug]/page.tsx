@@ -13,10 +13,17 @@ import {
   listUpcomingSessions,
   listVideos,
 } from "@/lib/queries";
+import {
+  canPreviewInstructor,
+  instructorIsPublic,
+  visibilityReason,
+} from "@/lib/instructor-visibility";
 import { DEFAULT_TIMEZONE, formatLongDate, formatRelative } from "@/lib/time";
 import { POST_TYPE_LABEL } from "@/lib/enums";
 import { parseList, pluralize } from "@/lib/utils";
+import Image from "next/image";
 import { Avatar } from "@/components/ui/avatar";
+import { PreviewBanner } from "@/components/preview-banner";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState, SectionTitle } from "@/components/ui/page";
@@ -45,11 +52,19 @@ export default async function InstructorPage({
 }) {
   const { slug } = await params;
   const row = await getInstructorBySlug(slug);
-  // A suspended profile is treated exactly like one that never existed — no
-  // "this account is suspended" page, which would only invite speculation.
-  if (!row || !row.profile.isPublished || row.profile.isSuspended) notFound();
+  if (!row) notFound();
 
   const viewer = await getCurrentUser();
+
+  /*
+   * A hidden, suspended or unverified profile is treated exactly like one that
+   * never existed — no "this account is suspended" page, which would only
+   * invite speculation. The exception is the instructor themselves and admins:
+   * they need to see the page to preview it and to decide on verification.
+   */
+  const isPublic = instructorIsPublic(row.profile);
+  const preview = !isPublic && canPreviewInstructor(row.profile, viewer);
+  if (!isPublic && !preview) notFound();
   const tz = viewer?.timezone ?? DEFAULT_TIMEZONE;
   const { profile, user } = row;
 
@@ -72,6 +87,25 @@ export default async function InstructorPage({
 
   return (
     <div>
+      {preview ? (
+        <PreviewBanner reason={visibilityReason(profile) ?? "Not visible to students."} />
+      ) : null}
+
+      {/* --------------------------------------------------- cover image */}
+      {profile.coverImageUrl ? (
+        <div className="relative h-44 w-full overflow-hidden sm:h-60">
+          <Image
+            src={profile.coverImageUrl}
+            alt={`${user.name} cover`}
+            fill
+            className="object-cover"
+            sizes="100vw"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
+        </div>
+      ) : null}
+
       {/* -------------------------------------------------------- profile */}
       <section className="border-b border-line bg-surface">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">

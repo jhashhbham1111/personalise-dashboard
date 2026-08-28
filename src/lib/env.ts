@@ -13,7 +13,21 @@ function optional(key: string): string | undefined {
 
 export const env = {
   appName: process.env.NEXT_PUBLIC_APP_NAME || "Personalise",
-  appUrl: process.env.APP_URL || "http://localhost:3000",
+  /**
+   * The origin the app is reachable at. Password-reset links, printed redeem
+   * codes and every canonical/og URL are built from it, so a wrong value here
+   * emails people a link to localhost.
+   *
+   * Falls back to Vercel's own production domain when APP_URL is unset, which
+   * is the difference between a broken reset link and a working one on a
+   * deployment nobody remembered to configure.
+   */
+  appUrl:
+    optional("APP_URL")?.replace(/\/$/, "") ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : undefined) ||
+    "http://localhost:3000",
   nodeEnv: process.env.NODE_ENV || "development",
 
   authSecret:
@@ -48,7 +62,32 @@ export const env = {
   resendApiKey: optional("RESEND_API_KEY"),
   fromEmail: optional("FROM_EMAIL") || "no-reply@personalise.local",
 
+  databaseUrl: optional("DATABASE_URL") || "file:./dev.db",
+  databaseAuthToken: optional("DATABASE_AUTH_TOKEN"),
+
   cronSecret: optional("CRON_SECRET"),
+
+  /**
+   * The Play Store package, once there is one.
+   *
+   * Both values come out of Bubblewrap, not out of a design decision, so they
+   * stay empty until the Android build exists. While they are empty the
+   * manifest omits `related_applications` and /.well-known/assetlinks.json
+   * 404s, which is the correct answer for a site with no Android app.
+   *
+   * ANDROID_SHA256_FINGERPRINTS is a comma-separated list because a rotation
+   * (or Play App Signing, which re-signs with its own key) means two
+   * certificates are valid at once. Colons and case are normalised here so it
+   * doesn't matter whether the value was pasted from keytool or from the Play
+   * Console.
+   */
+  android: {
+    packageName: optional("ANDROID_PACKAGE_NAME"),
+    sha256Fingerprints: (optional("ANDROID_SHA256_FINGERPRINTS") || "")
+      .split(",")
+      .map((f) => f.trim().toUpperCase())
+      .filter((f) => /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(f)),
+  },
 
   /**
    * Whether students can pay online from inside the app.
@@ -73,6 +112,12 @@ export const env = {
     const v = Number(optional("PLATFORM_FEE_PERCENT"));
     return Number.isFinite(v) && v >= 0 && v <= 100 ? v : 10;
   })(),
+  cloudinary: {
+    cloudName: optional("CLOUDINARY_CLOUD_NAME"),
+    apiKey: optional("CLOUDINARY_API_KEY"),
+    apiSecret: optional("CLOUDINARY_API_SECRET"),
+  },
+
 };
 
 export const DEV_AUTH_SECRET_FALLBACK =

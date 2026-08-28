@@ -99,6 +99,7 @@ export default async function StudioPage() {
 
   const hasClasses = (offeringCount[0]?.n ?? 0) > 0;
   const isPublished = profile?.isPublished ?? false;
+  const isVerified = profile?.isVerified ?? false;
 
   return (
     <div className="space-y-8">
@@ -148,6 +149,19 @@ export default async function StudioPage() {
             Publish it
           </Link>{" "}
           when you&rsquo;re ready.
+        </Alert>
+      ) : !isVerified ? (
+        /* Published but unverified is the state most likely to be mistaken for
+           "live" — everything in Studio looks finished, and no students turn
+           up. Worth saying plainly on the first screen they see. */
+        <Alert tone="warning">
+          You&rsquo;re published, but your account still needs to be verified
+          before students can find you in search. An admin reviews this — you
+          can{" "}
+          <Link href="/studio/profile" className="font-medium underline">
+            preview your page
+          </Link>{" "}
+          in the meantime.
         </Alert>
       ) : null}
 

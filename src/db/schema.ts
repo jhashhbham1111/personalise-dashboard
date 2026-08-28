@@ -52,6 +52,18 @@ export const users = sqliteTable(
     phone: text("phone"),
     avatarUrl: text("avatar_url"),
     timezone: text("timezone").notNull().default("Asia/Kolkata"),
+    /**
+     * Set when the person asked us to delete their account.
+     *
+     * The row survives the request because bookings, enrolments and payments
+     * reference it, and those are financial and operational records — an
+     * instructor's fee ledger and class registers must not develop holes, and
+     * payment rows are kept for tax. So the personal fields are scrubbed in
+     * place (see src/lib/account-deletion.ts) and this timestamp marks the
+     * husk that's left: it can no longer sign in and is not a real person's
+     * data any more.
+     */
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

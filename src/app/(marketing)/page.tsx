@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth";
+import { capabilities, liveCopy, paymentCopy } from "@/lib/capabilities";
 import {
   enrolledOfferingIds,
   listInstructors,
@@ -53,8 +54,8 @@ export default async function LandingPage() {
               actually teach.
             </h1>
             <p className="mt-4 max-w-xl text-lg leading-relaxed text-ink-soft">
-              Find an instructor, see their real schedule, book a seat, and join
-              the class live — without a single WhatsApp group or spreadsheet.
+              Find an instructor, see their real schedule, book a seat, and turn
+              up — without a single WhatsApp group or spreadsheet.
             </p>
 
             <form
@@ -158,9 +159,9 @@ export default async function LandingPage() {
                 We&rsquo;ll handle the admin.
               </h2>
               <p className="mt-4 text-brand-100">
-                Publish your classes, set your own prices, take UPI payments, run
-                the live session in-app, and keep every recording in one library.
-                Setting up takes about ten minutes.
+                Publish your classes, set your own prices,{" "}
+                {paymentCopy.instructor}, {liveCopy.instructor}, and keep every
+                recording in one library. Setting up takes about ten minutes.
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
                 <ButtonLink href="/signup?intent=teach" size="lg" variant="accent">
@@ -191,13 +192,15 @@ export default async function LandingPage() {
                 },
                 {
                   icon: IndianRupee,
-                  title: "UPI-first payments",
-                  body: "Students pay the way they actually pay. Cash gets tracked too.",
+                  title: capabilities.onlinePayments
+                    ? "UPI-first payments"
+                    : "Fees, tracked",
+                  body: paymentCopy.feature,
                 },
                 {
                   icon: MonitorPlay,
-                  title: "Live classes in-app",
-                  body: "Your own room with screen share and recording, built in.",
+                  title: liveCopy.featureTitle,
+                  body: liveCopy.featureBody,
                 },
               ].map((f) => {
                 const Icon = f.icon;
@@ -233,12 +236,12 @@ export default async function LandingPage() {
             {
               icon: CreditCard,
               title: "Pick a pass",
-              body: "Drop in for one class, buy a pack, or go monthly. Pay by UPI in a few taps.",
+              body: `Drop in for one class, buy a pack, or go monthly. ${paymentCopy.short}`,
             },
             {
               icon: Video,
               title: "Show up",
-              body: "Join the live room from your dashboard, or get the venue address and directions.",
+              body: liveCopy.join,
             },
           ].map((step, i) => {
             const Icon = step.icon;

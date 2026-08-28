@@ -7,6 +7,7 @@ import { formatDate, formatTime } from "@/lib/time";
 import { Badge } from "./ui/badge";
 import { ButtonLink } from "./ui/button";
 import { CancelBookingButton } from "./cancel-booking-button";
+import { ReviewDialog } from "@/app/(student)/dashboard/bookings/review-dialog";
 
 export type BookingRowData = {
   booking: {
@@ -23,6 +24,7 @@ export type BookingRowData = {
     mode: string;
     status: string;
   };
+  instructorId: string;
   instructorSlug: string;
   instructorName: string;
   venueName: string | null;
@@ -34,10 +36,13 @@ export function BookingRow({
   row,
   timezone,
   showCancel = true,
+  reviewedInstructorIds,
 }: {
   row: BookingRowData;
   timezone: string;
   showCancel?: boolean;
+  /** Set of instructor profile IDs the student has already reviewed. */
+  reviewedInstructorIds?: ReadonlySet<string>;
 }) {
   const { booking, session } = row;
   const isPast = session.endsAt < new Date();
@@ -50,6 +55,10 @@ export function BookingRow({
     session.mode !== "OFFLINE" &&
     booking.status === BookingStatus.CONFIRMED &&
     isWithinJoinWindow(session.startsAt, session.endsAt);
+
+  const attended = isPast && booking.attendance === "ATTENDED";
+  const hasReviewed = reviewedInstructorIds?.has(row.instructorId) ?? false;
+  const showReview = attended && !cancelled;
 
   return (
     <div className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-4 sm:flex-row sm:items-center">
@@ -78,12 +87,11 @@ export function BookingRow({
             </Badge>
           ) : null}
           {cancelled ? <Badge tone="soft">Cancelled</Badge> : null}
-          {isPast && booking.attendance === "ATTENDED" ? (
-            <Badge tone="success">Attended</Badge>
-          ) : null}
+          {attended ? <Badge tone="success">Attended</Badge> : null}
           {isPast && booking.attendance === "NO_SHOW" ? (
             <Badge tone="soft">Missed</Badge>
           ) : null}
+          {hasReviewed ? <Badge tone="info">Reviewed</Badge> : null}
         </div>
 
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-soft">
@@ -121,6 +129,13 @@ export function BookingRow({
           >
             Directions
           </ButtonLink>
+        ) : null}
+        {showReview ? (
+          <ReviewDialog
+            instructorId={row.instructorId}
+            instructorName={row.instructorName}
+            existingRating={hasReviewed ? 1 : undefined}
+          />
         ) : null}
         {showCancel && !isPast && !cancelled ? (
           <CancelBookingButton

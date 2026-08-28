@@ -116,6 +116,26 @@ input[type="number"] {
   animation: pulse-dot 1.4s ease-in-out infinite;
 }
 
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* The live room's chat/people panel is a bottom sheet on a phone and a static
+   side column from `md` up. The media query — rather than a `md:animate-none`
+   utility — is because plain CSS here sits outside Tailwind's layers and would
+   otherwise win the cascade against it, sliding the desktop column in from
+   below every time it opened. 48rem is Tailwind's `md`. */
+@media (max-width: 47.99rem) {
+  .animate-sheet-up {
+    animation: sheet-up 0.22s ease-out both;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

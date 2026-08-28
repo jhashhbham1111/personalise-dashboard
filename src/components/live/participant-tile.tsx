@@ -8,15 +8,20 @@ import type { LiveParticipant } from "./types";
 export function ParticipantTile({
   participant,
   attachVideo,
+  className,
 }: {
   participant: LiveParticipant;
   attachVideo: (el: HTMLVideoElement | null) => void;
+  /** Sizing/ordering from the caller — the phone layout gives the stage tile
+      and the strip tiles very different widths out of the same component. */
+  className?: string;
 }) {
   return (
     <div
       className={cn(
         "relative flex aspect-video items-center justify-center overflow-hidden rounded-xl bg-neutral-900",
         participant.speaking && "ring-2 ring-brand-400",
+        className,
       )}
     >
       {participant.hasVideo ? (

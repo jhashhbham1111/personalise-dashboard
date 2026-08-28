@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { CalendarDays } from "lucide-react";
 
 import { requireUser } from "@/lib/auth";
-import { studentBookings } from "@/lib/queries";
+import { studentBookings, studentReviewedInstructors } from "@/lib/queries";
 import { BookingRow } from "@/components/booking-row";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState, PageHeader, SectionTitle } from "@/components/ui/page";
@@ -12,9 +12,10 @@ export const metadata: Metadata = { title: "My bookings" };
 export default async function BookingsPage() {
   const user = await requireUser("/dashboard/bookings");
 
-  const [upcoming, past] = await Promise.all([
+  const [upcoming, past, reviewedIds] = await Promise.all([
     studentBookings(user.id, { upcoming: true }),
     studentBookings(user.id, { upcoming: false, limit: 25 }),
+    studentReviewedInstructors(user.id),
   ]);
 
   return (
@@ -37,7 +38,11 @@ export default async function BookingsPage() {
         ) : (
           <div className="space-y-2">
             {upcoming.map((row) => (
-              <BookingRow key={row.booking.id} row={row} timezone={user.timezone} />
+              <BookingRow
+                key={row.booking.id}
+                row={row}
+                timezone={user.timezone}
+              />
             ))}
           </div>
         )}
@@ -53,6 +58,7 @@ export default async function BookingsPage() {
                 row={row}
                 timezone={user.timezone}
                 showCancel={false}
+                reviewedInstructorIds={reviewedIds}
               />
             ))}
           </div>

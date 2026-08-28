@@ -21,8 +21,19 @@ import { Menu, X } from "lucide-react";
  */
 export function MobileNav({
   items,
+  signedIn = false,
 }: {
   items: { href: string; label: string }[];
+  /**
+   * Whether to offer "Sign in" at the bottom of the sheet.
+   *
+   * The header shows "Sign in" and "Get started" side by side, which is 22px
+   * wider than a 390px phone — the whole page scrolled sideways because of it.
+   * "Sign in" is the one that moves in here, because "Get started" is what a
+   * first-time visitor is looking for and someone who already has an account
+   * knows to go looking for the way in.
+   */
+  signedIn?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -65,6 +76,16 @@ export function MobileNav({
               </Link>
             ))}
           </nav>
+
+          {signedIn ? null : (
+            <Link
+              href="/login"
+              onClick={() => setOpen(false)}
+              className="mt-auto rounded-lg border border-line px-3 py-3 text-center text-base font-medium text-ink transition-colors hover:bg-brand-50 hover:text-brand-700"
+            >
+              Sign in
+            </Link>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

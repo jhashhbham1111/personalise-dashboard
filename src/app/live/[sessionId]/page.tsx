@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { and, asc, eq } from "drizzle-orm";
 
 import { bookings, db, users } from "@/db";
@@ -13,6 +13,25 @@ import { OpenSoon } from "@/components/live/open-soon";
 import type { SimPeer } from "@/components/live/types";
 
 export const metadata: Metadata = { title: "Live class" };
+
+/**
+ * Scoped to this route rather than the root layout, because both settings only
+ * make sense for a screen that owns the whole viewport.
+ *
+ * `viewportFit: "cover"` is what makes `env(safe-area-inset-bottom)` report a
+ * real number — without it the control bar's safe-area padding silently
+ * computes to 0 and the buttons sit under the phone's home indicator.
+ *
+ * `interactiveWidget: "resizes-content"` shrinks the layout viewport when the
+ * on-screen keyboard opens, so `100dvh` accounts for it and the chat sheet
+ * rides above the keyboard instead of being covered by it.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+};
 
 export default async function LivePage({
   params,
@@ -93,10 +112,13 @@ function DeniedShell({
   backHref: string;
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper px-4">
-      <Card className="max-w-sm p-6 text-center">
+    // `min-h-dvh`, not `min-h-screen`: on mobile Chrome and Safari `100vh` is
+    // the viewport *with the URL bar collapsed*, so a centred card is pushed
+    // partly under the browser chrome until you scroll.
+    <div className="flex min-h-dvh items-center justify-center bg-paper px-4 py-8">
+      <Card className="w-full max-w-sm p-6 text-center">
         {children}
-        <ButtonLink href={backHref} variant="secondary" className="mt-5">
+        <ButtonLink href={backHref} variant="secondary" className="mt-5 min-h-11">
           Back
         </ButtonLink>
       </Card>

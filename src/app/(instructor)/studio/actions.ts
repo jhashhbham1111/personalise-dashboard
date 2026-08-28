@@ -126,8 +126,16 @@ export async function saveProfileAction(
       instagramUrl: str(form, "instagramUrl") || null,
       youtubeUrl: str(form, "youtubeUrl") || null,
       websiteUrl: str(form, "websiteUrl") || null,
+      coverImageUrl: str(form, "coverImageUrl") || null,
     })
     .where(eq(instructorProfiles.id, user.instructorProfileId));
+
+  // avatarUrl lives on the users row, not the instructor profile
+  const avatarUrl = str(form, "avatarUrl") || null;
+  await db
+    .update(users)
+    .set({ avatarUrl })
+    .where(eq(users.id, user.id));
 
   revalidatePath("/studio/profile");
   if (user.instructorSlug) revalidatePath(`/i/${user.instructorSlug}`);
@@ -231,6 +239,7 @@ export async function saveOfferingAction(
     capacity: clamp(num(form, "capacity", 20), 1, 500),
     venueId: mode === "ONLINE" ? null : venueId,
     isActive: bool(form, "isActive"),
+    coverImageUrl: str(form, "coverImageUrl") || null,
   };
 
   if (offeringId) {

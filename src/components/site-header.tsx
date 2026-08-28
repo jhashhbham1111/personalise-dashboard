@@ -36,7 +36,7 @@ export async function SiteHeader({
     <header className="sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6 md:gap-6">
         {/* Phones get a real menu button; the wide nav below takes over at md. */}
-        {showPublicNav ? <MobileNav items={NAV} /> : null}
+        {showPublicNav ? <MobileNav items={NAV} signedIn={!!user} /> : null}
 
         <Link href={homeHref} aria-label="Personalise home">
           <Logo />
@@ -61,7 +61,19 @@ export async function SiteHeader({
             <UserMenu user={user} unreadCount={unread} />
           ) : (
             <>
-              <ButtonLink href="/login" variant="ghost" size="sm">
+              {/*
+                Both buttons together overflow a 390px phone by 22px, which
+                made every page scroll sideways. Below sm, "Sign in" lives in
+                the menu sheet instead — except on the role layouts, which pass
+                showPublicNav={false} and have no sheet, but also require a
+                signed-in user, so this branch never renders there.
+              */}
+              <ButtonLink
+                href="/login"
+                variant="ghost"
+                size="sm"
+                className="hidden sm:inline-flex"
+              >
                 Sign in
               </ButtonLink>
               <ButtonLink href="/signup" size="sm">

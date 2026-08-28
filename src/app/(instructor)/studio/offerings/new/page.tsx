@@ -50,6 +50,7 @@ export default async function NewOfferingPage() {
           durationMin: 60,
           capacity: 20,
           venueId: null,
+          coverImageUrl: null,
           isActive: true,
         }}
       />

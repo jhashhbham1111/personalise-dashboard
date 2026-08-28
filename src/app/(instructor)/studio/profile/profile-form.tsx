@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ImageUpload } from "@/components/ui/image-upload";
 
 export function ProfileForm({
   initial,
@@ -22,6 +23,8 @@ export function ProfileForm({
     disciplines: string[];
     languages: string[];
     certifications: string[];
+    avatarUrl: string | null;
+    coverImageUrl: string | null;
     instagramUrl: string | null;
     youtubeUrl: string | null;
     websiteUrl: string | null;
@@ -46,6 +49,29 @@ export function ProfileForm({
       ))}
 
       <FormMessage state={state} />
+
+      <Card className="p-5">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-faint">
+          Photos
+        </h2>
+        <div className="flex flex-wrap gap-6">
+          <ImageUpload
+            name="avatarUrl"
+            folder="avatars"
+            defaultUrl={initial.avatarUrl}
+            label="Profile photo"
+            shape="square"
+          />
+          <ImageUpload
+            name="coverImageUrl"
+            folder="covers"
+            defaultUrl={initial.coverImageUrl}
+            label="Cover image"
+            shape="wide"
+            className="flex-1 min-w-48"
+          />
+        </div>
+      </Card>
 
       <Card className="space-y-4 p-5">
         <Field

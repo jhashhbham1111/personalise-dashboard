@@ -75,7 +75,13 @@ export async function loginAction(
 
   const user = await db.query.users.findFirst({ where: eq(users.email, email) });
   // Same message either way — don't leak which emails have accounts.
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+  //
+  // A deleted account is refused with that same message rather than "this
+  // account was deleted": the scrubbed row keeps its role and its ledger
+  // history, and telling a stranger which addresses used to be accounts is the
+  // same enumeration leak as telling them which ones are. Its passwordHash is
+  // already a value bcrypt can never match, so this is the second lock.
+  if (!user || user.deletedAt || !(await verifyPassword(password, user.passwordHash))) {
     return fail("That email and password don't match.");
   }
 

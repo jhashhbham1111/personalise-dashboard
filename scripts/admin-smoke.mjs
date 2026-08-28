@@ -70,9 +70,20 @@ try {
   await login(admin, "admin@personalise.app");
   await admin.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded" });
   check("admin overview loads", await admin.getByText(/platform admin/i).first().isVisible());
+  /*
+   * Asserts the log renders entries, not one specific seeded note. The panel
+   * shows only the 12 most recent events, so anchoring on the seed's
+   * "Yoga Alliance register" note made this pass or fail on how many times the
+   * smoke suites had been run — every suspend/reinstate cycle pushed it
+   * further down until it fell off.
+   */
+  const loggedActions = await admin
+    .locator("text=/^(Verified|Suspended|Reinstated|Unverified)$/")
+    .count();
   check(
-    "moderation log shows the seeded verification",
-    await admin.getByText(/Yoga Alliance register/i).isVisible().catch(() => false),
+    "moderation log lists recorded actions",
+    loggedActions > 0,
+    `${loggedActions} entries shown`,
   );
   await shot(admin, "01-admin-overview");
 

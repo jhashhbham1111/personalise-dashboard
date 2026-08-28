@@ -14,9 +14,11 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ImageUpload } from "@/components/ui/image-upload";
 
 export type OfferingFormValues = {
   id?: string;
+  coverImageUrl?: string | null;
   title: string;
   summary: string;
   description: string;
@@ -230,7 +232,17 @@ export function OfferingForm({
       </Card>
 
       <div className="flex gap-2">
-        <SubmitButton size="lg" pendingText="Saving…">
+        <Card className="p-5">
+        <ImageUpload
+          name="coverImageUrl"
+          folder="covers"
+          defaultUrl={initial.coverImageUrl}
+          label="Cover image"
+          shape="wide"
+        />
+      </Card>
+
+      <SubmitButton size="lg" pendingText="Saving…">
           {initial.id ? "Save changes" : "Create class"}
         </SubmitButton>
       </div>

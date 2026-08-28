@@ -48,14 +48,18 @@ export type InstructorCardData = Awaited<
 /**
  * Who the public is allowed to see.
  *
- * An admin suspension outranks the instructor's own publish switch, so both
- * conditions live together here — every public listing query composes this
- * rather than re-deriving it, which is what stops a suspended instructor
- * leaking through one page that forgot to check.
+ * An admin suspension outranks the instructor's own publish switch, and
+ * verification gates both — every public listing query composes this rather
+ * than re-deriving it, which is what stops an unverified or suspended
+ * instructor leaking through one page that forgot to check.
+ *
+ * The page-level half of this rule lives in `src/lib/instructor-visibility.ts`
+ * (`instructorIsPublic`); the two must be kept in step.
  */
 export const publiclyVisibleInstructor = and(
   eq(instructorProfiles.isPublished, true),
   eq(instructorProfiles.isSuspended, false),
+  eq(instructorProfiles.isVerified, true),
 )!;
 
 export async function listInstructors(filters?: {
@@ -470,6 +474,7 @@ export async function studentBookings(
       instructorSlug: instructorProfiles.slug,
       instructorName: users.name,
       instructorAvatar: users.avatarUrl,
+      instructorId: instructorProfiles.id,
       venueName: venues.name,
       venueAddress: venues.addressLine,
       venueCity: venues.city,
@@ -556,4 +561,12 @@ export async function instructorStats(instructorId: string) {
     pendingPaise: Number(revenue?.pending ?? 0),
     monthRevenuePaise: Number(monthRevenue?.total ?? 0),
   };
+}
+
+export async function studentReviewedInstructors(studentId: string): Promise<ReadonlySet<string>> {
+  const rows = await db
+    .select({ instructorId: reviews.instructorId })
+    .from(reviews)
+    .where(eq(reviews.studentId, studentId));
+  return new Set(rows.map((r) => r.instructorId));
 }

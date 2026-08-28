@@ -9,9 +9,9 @@ export const metadata: Metadata = { title: "Sign in" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; reset?: string }>;
+  searchParams: Promise<{ next?: string; reset?: string; deleted?: string }>;
 }) {
-  const { next, reset } = await searchParams;
+  const { next, reset, deleted } = await searchParams;
 
   return (
     <div>
@@ -23,6 +23,17 @@ export default async function LoginPage({
       {reset ? (
         <Alert tone="success" className="mt-5">
           Your password has been changed. Sign in with your new one.
+        </Alert>
+      ) : null}
+
+      {/* Where deleteAccountAction lands people. There is nowhere signed-in
+          left to send them, and a bare landing page would leave them wondering
+          whether it worked. */}
+      {deleted ? (
+        <Alert tone="info" className="mt-5">
+          Your account has been deleted and you&apos;re signed out. Nothing on the
+          old account can be recovered, but the email address is free again if
+          you ever want to start fresh.
         </Alert>
       ) : null}
 

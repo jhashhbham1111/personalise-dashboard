@@ -13,6 +13,7 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
 import { Modal, ModalClose } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { TimeSelect } from "@/components/ui/time-select";
 
 type OfferingOption = {
   id: string;
@@ -162,20 +163,13 @@ export function RuleDialog({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Start time" htmlFor="startTime" hint="in 5-minute steps">
-            <Input
+            {/* TimeSelect uses paired <select> elements rather than
+                <input type="time"> — the native OS time picker ignores the
+                step attribute on iOS and Chrome's phone emulator, and its
+                scroll wheel doesn't respond to simulated touch events. */}
+            <TimeSelect
               id="startTime"
               name="startTime"
-              type="time"
-              /* Without a step the browser offers every minute of the hour —
-                 sixty entries to scroll for a class that starts at 07:30.
-                 Five-minute steps match how classes are actually scheduled
-                 and match the Length field below. */
-              step={300}
-              /* Rounded to match the step. A rule saved before this existed
-                 could sit on an off-step minute, and the browser would then
-                 refuse to submit the form at all — showing a rounded time they
-                 can see and adjust beats a save button that silently does
-                 nothing. */
               defaultValue={minutesToTimeInput(
                 Math.round((rule?.startTimeMinutes ?? 390) / 5) * 5,
               )}

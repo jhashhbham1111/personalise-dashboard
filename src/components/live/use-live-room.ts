@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import type { LiveEngineController, LiveRoomState, SimPeer } from "./types";
 
@@ -27,6 +27,36 @@ const EMPTY_STATE: LiveRoomState = {
   chat: [],
   isRecording: false,
 };
+
+/** Capability, not state: nothing ever changes it, so nothing to subscribe to. */
+const neverChanges = () => () => {};
+const hasGetDisplayMedia = () =>
+  typeof navigator.mediaDevices?.getDisplayMedia === "function";
+const noScreenShareOnServer = () => false;
+
+/**
+ * Whether this browser can capture a screen at all.
+ *
+ * Chrome and Safari on Android/iOS ship `navigator.mediaDevices` but simply
+ * don't implement `getDisplayMedia`, so a "Share screen" button there is a
+ * button that can only fail. Feature-detecting beats sniffing the user agent:
+ * the same check also covers WebViews, the Play Store TWA wrapper, and any
+ * future browser that drops the API — none of which a UA string would tell us
+ * reliably.
+ *
+ * `useSyncExternalStore` rather than a `useEffect` that sets state: it takes a
+ * separate server snapshot, so the markup React renders on the server and
+ * hydrates on the client agree by construction (always "no screen share"), and
+ * the real answer lands in the same commit as hydration rather than a render
+ * later.
+ */
+export function useScreenShareSupport(): boolean {
+  return useSyncExternalStore(
+    neverChanges,
+    hasGetDisplayMedia,
+    noScreenShareOnServer,
+  );
+}
 
 /**
  * Fetches a join grant for the session and boots whichever engine the grant

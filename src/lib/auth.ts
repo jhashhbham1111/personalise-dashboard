@@ -97,6 +97,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       role: users.role,
       avatarUrl: users.avatarUrl,
       timezone: users.timezone,
+      deletedAt: users.deletedAt,
       profileId: instructorProfiles.id,
       profileSlug: instructorProfiles.slug,
     })
@@ -107,6 +108,12 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   const row = rows[0];
   if (!row) return null;
+
+  // Deletion destroys the session cookie on the device it was requested from,
+  // but the token is self-contained and stays valid for 30 days everywhere
+  // else it was ever set. Without this, a deleted account is still signed in
+  // on the tablet in the other room.
+  if (row.deletedAt) return null;
 
   return {
     id: row.id,
