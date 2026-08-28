@@ -266,7 +266,7 @@ export async function listUpcomingSessions(filters?: {
 
   const conditions = [
     eq(classSessions.status, SessionStatus.SCHEDULED),
-    gte(classSessions.startsAt, filters?.from ?? new Date()),
+    filters?.from ? gte(classSessions.startsAt, filters.from) : gte(classSessions.endsAt, new Date()),
     // Every caller of this is a public page, so a class is only listed if its
     // instructor is publicly visible — otherwise a hidden or suspended
     // instructor's classes stay bookable through the class directory.
