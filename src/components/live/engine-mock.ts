@@ -309,6 +309,7 @@ export function createMockEngine(opts: {
     leave() {
       controller.dispose();
     },
+    startAudio() { /* mock — audio is never blocked in dev */ },
     attachVideo(identity, el) {
       if (el) videoEls.set(identity, el);
       else videoEls.delete(identity);

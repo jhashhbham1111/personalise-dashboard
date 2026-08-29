@@ -36,6 +36,7 @@ export async function createLiveKitEngine(opts: {
   let status: LiveRoomState["status"] = "connecting";
   let errorMessage: string | undefined;
   let recording = false;
+  let audioBlocked = false;
   let disposed = false;
 
   function rid(): string {
@@ -50,6 +51,7 @@ export async function createLiveKitEngine(opts: {
       participants: collectParticipants(),
       chat: [...chat],
       isRecording: recording,
+      audioBlocked,
     });
   }
 
@@ -263,6 +265,12 @@ export async function createLiveKitEngine(opts: {
     leave() {
       controller.dispose();
     },
+    startAudio() {
+      room.startAudio().then(() => {
+        audioBlocked = false;
+        emit();
+      }).catch(() => undefined);
+    },
     attachVideo(identity, el) {
       if (el) videoEls.set(identity, el);
       else videoEls.delete(identity);
@@ -275,10 +283,16 @@ export async function createLiveKitEngine(opts: {
     },
   };
 
+  room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+    audioBlocked = !room.canPlaybackAudio;
+    emit();
+  });
+
   try {
     await room.connect(opts.grant.serverUrl ?? "", opts.grant.token);
     await room.localParticipant.setMicrophoneEnabled(true).catch(() => undefined);
     await room.localParticipant.setCameraEnabled(true).catch(() => undefined);
+    room.startAudio().catch(() => undefined);
     status = "connected";
     pushSystem(`${room.localParticipant.name || "You"} joined the class.`);
     syncAll();

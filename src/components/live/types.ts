@@ -27,6 +27,8 @@ export type LiveRoomState = {
   participants: LiveParticipant[];
   chat: LiveChatMessage[];
   isRecording: boolean;
+  /** True when the browser blocked audio autoplay — show a tap-to-enable prompt. */
+  audioBlocked: boolean;
 };
 
 /**
@@ -47,6 +49,7 @@ export type LiveEngineController = {
   stopRecording(): void;
   endClass(): void;
   leave(): void;
+  startAudio(): void;
   attachVideo(identity: string, el: HTMLVideoElement | null): void;
   dispose(): void;
 };
