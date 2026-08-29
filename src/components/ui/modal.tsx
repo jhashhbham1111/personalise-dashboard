@@ -35,11 +35,19 @@ export function Modal({
         <Dialog.Overlay className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-[2px]" />
         <Dialog.Content
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius-card)] border border-line bg-surface p-5 shadow-xl animate-fade-up",
+            // Capped height + a scrollable body, because Radix locks scrolling
+            // on the page behind an open dialog: a form taller than the screen
+            // would otherwise overflow off both ends with no way to reach its
+            // buttons. That's invisible on a laptop and fatal on a phone.
+            // dvh, not vh — on mobile browsers vh counts the area behind the
+            // address bar, so the bottom of the dialog hides underneath it.
+            "fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface shadow-xl animate-fade-up",
             className,
           )}
         >
-          <div className="mb-4 pr-8">
+          {/* Header stays put while the body scrolls, so the title and the
+              close button never scroll out of reach. */}
+          <div className="shrink-0 px-5 pb-4 pr-12 pt-5">
             <Dialog.Title className="text-lg font-semibold text-ink">
               {title}
             </Dialog.Title>
@@ -55,7 +63,13 @@ export function Modal({
           >
             <X className="h-4 w-4" />
           </Dialog.Close>
-          {children}
+          {/* min-h-0 is what actually lets this shrink inside the flex column —
+              without it a flex item refuses to go below its content height and
+              overflow-y-auto never engages. overscroll-contain stops a scroll
+              that reaches the end here from grabbing the page behind. */}
+          <div className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-5">
+            {children}
+          </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
