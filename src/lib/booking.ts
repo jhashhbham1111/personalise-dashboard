@@ -317,6 +317,68 @@ export async function cancelBooking(
   return { ok: true, refundedCredit: refundCredit };
 }
 
+/**
+ * Cancel an entire session: flips it to CANCELLED, cancels every booking on
+ * it via `cancelBooking({ byInstructor: true })` — which is what actually
+ * returns each student's credit to their pass — and emails every affected
+ * student. Callers are responsible for authorization before calling this;
+ * it does no ownership check of its own, the same posture `cancelBooking`
+ * takes with `asSessionId`/`asStudentId`.
+ *
+ * Used by both the instructor's own "cancel this class" action and the
+ * automatic underfilled-class job (`src/lib/underfilled.ts`) — one place
+ * decides what "cancelling a class" means, so a system-initiated
+ * cancellation returns credit exactly the way an instructor-initiated one
+ * always has.
+ */
+export async function cancelClassSession(args: {
+  sessionId: string;
+  reason: string;
+  /** Set only for a cancellation the instructor didn't personally trigger, so they're told too — not just their students. */
+  notifyInstructorUserId?: string;
+}): Promise<{ ok: true; studentsNotified: number } | { ok: false; error: string }> {
+  const session = await db.query.classSessions.findFirst({
+    where: eq(classSessions.id, args.sessionId),
+    with: { bookings: true },
+  });
+  if (!session) return { ok: false, error: "That class no longer exists." };
+  if (session.status === SessionStatus.CANCELLED) {
+    return { ok: false, error: "That class is already cancelled." };
+  }
+
+  await db
+    .update(classSessions)
+    .set({ status: SessionStatus.CANCELLED, cancelReason: args.reason })
+    .where(eq(classSessions.id, args.sessionId));
+
+  let released = 0;
+  for (const b of session.bookings) {
+    if (b.status === BookingStatus.CANCELLED) continue;
+    await cancelBooking({ bookingId: b.id, byInstructor: true, asSessionId: args.sessionId });
+    released++;
+    await notify({
+      userId: b.studentId,
+      type: NotificationType.CLASS_CANCELLED,
+      title: `Class cancelled: ${session.title}`,
+      body: args.reason,
+      link: "/dashboard/bookings",
+      email: true,
+    });
+  }
+
+  if (args.notifyInstructorUserId) {
+    await notify({
+      userId: args.notifyInstructorUserId,
+      type: NotificationType.CLASS_CANCELLED,
+      title: `Auto-cancelled: ${session.title}`,
+      body: args.reason,
+      link: `/studio/sessions/${session.id}`,
+    });
+  }
+
+  return { ok: true, studentsNotified: released };
+}
+
 /** Move the longest-waiting student into a freed seat, if there's room. */
 export async function promoteFromWaitlist(sessionId: string): Promise<boolean> {
   const session = await db.query.classSessions.findFirst({

@@ -14,11 +14,9 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { ImageUpload } from "@/components/ui/image-upload";
 
 export type OfferingFormValues = {
   id?: string;
-  coverImageUrl?: string | null;
   title: string;
   summary: string;
   description: string;
@@ -28,6 +26,7 @@ export type OfferingFormValues = {
   level: string;
   durationMin: number;
   capacity: number;
+  minCapacity: number | null;
   venueId: string | null;
   isActive: boolean;
 };
@@ -186,7 +185,35 @@ export function OfferingForm({
               key={isPrivate ? "private" : "group"}
             />
           </Field>
+
+          {!isPrivate ? (
+            <Field
+              label="Minimum students to run"
+              htmlFor="minCapacity"
+              hint="blank = always runs, even for one student"
+              error={state.fields?.minCapacity}
+            >
+              <Input
+                id="minCapacity"
+                name="minCapacity"
+                type="number"
+                min={1}
+                max={500}
+                defaultValue={initial.minCapacity ?? ""}
+                placeholder="e.g. 3"
+              />
+            </Field>
+          ) : null}
         </div>
+
+        {!isPrivate ? (
+          <p className="rounded-lg bg-brand-50 px-3 py-2.5 text-xs text-brand-800">
+            Set a minimum and a class that hasn&rsquo;t reached it 2 hours
+            before start auto-cancels — every booked student gets their
+            credit back automatically and is emailed, so you don&rsquo;t have
+            to catch it yourself.
+          </p>
+        ) : null}
 
         {needsVenue ? (
           <Field
@@ -232,17 +259,7 @@ export function OfferingForm({
       </Card>
 
       <div className="flex gap-2">
-        <Card className="p-5">
-        <ImageUpload
-          name="coverImageUrl"
-          folder="covers"
-          defaultUrl={initial.coverImageUrl}
-          label="Cover image"
-          shape="wide"
-        />
-      </Card>
-
-      <SubmitButton size="lg" pendingText="Saving…">
+        <SubmitButton size="lg" pendingText="Saving…">
           {initial.id ? "Save changes" : "Create class"}
         </SubmitButton>
       </div>

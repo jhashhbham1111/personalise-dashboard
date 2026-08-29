@@ -23,6 +23,7 @@ import {
   enrollments,
   instructorProfiles,
   offerings,
+  payments,
   posts,
   pricingPlans,
   reviews,
@@ -30,7 +31,14 @@ import {
   venues,
   videoAssets,
 } from "@/db";
-import { BookingStatus, EnrollmentStatus, SessionStatus, Visibility } from "./enums";
+import {
+  Attendance,
+  BookingStatus,
+  EnrollmentStatus,
+  PaymentStatus,
+  SessionStatus,
+  Visibility,
+} from "./enums";
 import { canonicalCity, cityKey } from "./utils";
 
 /**
@@ -569,4 +577,130 @@ export async function studentReviewedInstructors(studentId: string): Promise<Rea
     .from(reviews)
     .where(eq(reviews.studentId, studentId));
   return new Set(rows.map((r) => r.instructorId));
+}
+
+export type InstructorAnalytics = {
+  /** Last 8 weeks with any revenue, oldest first. */
+  revenueByWeek: { weekStartMs: number; totalPaise: number }[];
+  attendedCount: number;
+  noShowCount: number;
+  /** null when nobody's attendance has been marked yet. */
+  attendanceRate: number | null;
+  repeatStudents: number;
+  totalStudents: number;
+  /** null when the instructor has never had a booking. */
+  repeatRate: number | null;
+  /** Busiest booking times, most-booked first. */
+  popularSlots: { day: string; hour: number; bookings: number }[];
+};
+
+/**
+ * Trends an instructor can otherwise only see by scrolling raw lists:
+ * revenue over time, how often booked students actually show up, how many
+ * come back for a second class, and which times fill up fastest.
+ *
+ * Bucketed in JS rather than with SQLite's `strftime` on both dimensions
+ * that matter here — a week boundary and the hour of day — a raw-SQL bucket
+ * on `starts_at` (stored UTC) would group by the *server's* day and hour,
+ * not the one the class actually ran in India. At this platform's scale
+ * (tens of instructors, each with a few hundred bookings at most) reading
+ * the rows and bucketing here costs nothing worth optimising away yet.
+ */
+export async function instructorAnalytics(instructorId: string): Promise<InstructorAnalytics> {
+  const paidPayments = await db
+    .select({ amountPaise: payments.amountPaise, paidAt: payments.paidAt })
+    .from(payments)
+    .where(and(eq(payments.instructorId, instructorId), eq(payments.status, PaymentStatus.PAID)));
+
+  const weekBuckets = new Map<number, number>();
+  for (const p of paidPayments) {
+    if (!p.paidAt) continue;
+    const d = p.paidAt;
+    const dayOfWeek = d.getUTCDay(); // 0 = Sunday
+    const diffToMonday = (dayOfWeek + 6) % 7;
+    const monday = new Date(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diffToMonday),
+    );
+    const key = monday.getTime();
+    weekBuckets.set(key, (weekBuckets.get(key) ?? 0) + p.amountPaise);
+  }
+  const revenueByWeek = Array.from(weekBuckets.entries())
+    .map(([weekStartMs, totalPaise]) => ({ weekStartMs, totalPaise }))
+    .sort((a, b) => a.weekStartMs - b.weekStartMs)
+    .slice(-8);
+
+  const attendanceRows = await db
+    .select({ attendance: bookings.attendance })
+    .from(bookings)
+    .innerJoin(classSessions, eq(classSessions.id, bookings.sessionId))
+    .where(
+      and(
+        eq(classSessions.instructorId, instructorId),
+        eq(bookings.status, BookingStatus.CONFIRMED),
+      ),
+    );
+  let attendedCount = 0;
+  let noShowCount = 0;
+  for (const r of attendanceRows) {
+    if (r.attendance === Attendance.ATTENDED) attendedCount++;
+    else if (r.attendance === Attendance.NO_SHOW) noShowCount++;
+  }
+  const attendanceRate =
+    attendedCount + noShowCount > 0 ? attendedCount / (attendedCount + noShowCount) : null;
+
+  const nonCancelledBookings = await db
+    .select({ studentId: bookings.studentId, startsAt: classSessions.startsAt })
+    .from(bookings)
+    .innerJoin(classSessions, eq(classSessions.id, bookings.sessionId))
+    .where(
+      and(
+        eq(classSessions.instructorId, instructorId),
+        sql`${bookings.status} <> ${BookingStatus.CANCELLED}`,
+      ),
+    );
+
+  const perStudent = new Map<string, number>();
+  for (const b of nonCancelledBookings) {
+    perStudent.set(b.studentId, (perStudent.get(b.studentId) ?? 0) + 1);
+  }
+  const totalStudents = perStudent.size;
+  const repeatStudents = Array.from(perStudent.values()).filter((n) => n > 1).length;
+  const repeatRate = totalStudents > 0 ? repeatStudents / totalStudents : null;
+
+  const slotCounts = new Map<string, number>();
+  for (const b of nonCancelledBookings) {
+    const day = b.startsAt.toLocaleDateString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      weekday: "short",
+    });
+    // en-GB rather than en-IN for the time: it reliably honours hour12:false,
+    // which some runtimes' en-IN data ignores.
+    const hour = Number(
+      b.startsAt.toLocaleTimeString("en-GB", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        hour12: false,
+      }),
+    );
+    const key = `${day}|${hour}`;
+    slotCounts.set(key, (slotCounts.get(key) ?? 0) + 1);
+  }
+  const popularSlots = Array.from(slotCounts.entries())
+    .map(([key, bookingsCount]) => {
+      const [day, hourStr] = key.split("|");
+      return { day, hour: Number(hourStr), bookings: bookingsCount };
+    })
+    .sort((a, b) => b.bookings - a.bookings)
+    .slice(0, 5);
+
+  return {
+    revenueByWeek,
+    attendedCount,
+    noShowCount,
+    attendanceRate,
+    repeatStudents,
+    totalStudents,
+    repeatRate,
+    popularSlots,
+  };
 }

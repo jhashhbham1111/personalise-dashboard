@@ -49,8 +49,8 @@ export default async function NewOfferingPage() {
           level: "ALL_LEVELS",
           durationMin: 60,
           capacity: 20,
+          minCapacity: null,
           venueId: null,
-          coverImageUrl: null,
           isActive: true,
         }}
       />

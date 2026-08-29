@@ -99,8 +99,8 @@ export default async function EditOfferingPage({
           level: offering.level,
           durationMin: offering.durationMin,
           capacity: offering.capacity,
+          minCapacity: offering.minCapacity,
           venueId: offering.venueId,
-          coverImageUrl: offering.coverImageUrl,
           isActive: offering.isActive,
         }}
       />

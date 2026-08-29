@@ -210,6 +210,13 @@ export const offerings = sqliteTable(
     capacity: integer("capacity").notNull().default(20),
     coverImageUrl: text("cover_image_url"),
     venueId: text("venue_id").references(() => venues.id, { onDelete: "set null" }),
+    /**
+     * Fewer confirmed students than this and the class auto-cancels shortly
+     * before it starts — see `src/lib/underfilled.ts`. Null = no minimum, a
+     * class always runs. Doesn't apply to 1-on-1 offerings, whose capacity is
+     * already fixed at 1.
+     */
+    minCapacity: integer("min_capacity"),
     isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

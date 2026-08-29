@@ -30,6 +30,7 @@ export const MORE_TABS = [
   { href: "/studio/venues", label: "Venues" },
   { href: "/studio/media", label: "Videos" },
   { href: "/studio/updates", label: "Updates" },
+  { href: "/studio/analytics", label: "Analytics" },
   { href: "/studio/notifications", label: "Notifications" },
 ];
 

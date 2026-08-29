@@ -19,7 +19,7 @@ import {
   videoAssets,
 } from "@/db";
 import { requireInstructor } from "@/lib/auth";
-import { cancelBooking } from "@/lib/booking";
+import { cancelBooking, cancelClassSession } from "@/lib/booking";
 import {
   findStudentByEmail,
   recordAdHocPayment,
@@ -225,6 +225,20 @@ export async function saveOfferingAction(
   // off-list discipline is worse than invalid data: the filter chips are built
   // from DISCIPLINES, so such a class becomes permanently unfilterable while
   // still appearing in listings.
+  // Upper bounds mirror the inputs' own max attributes, which a direct POST
+  // skips entirely — an 8-hour cap and 500 seats are already generous.
+  const capacity = clamp(num(form, "capacity", 20), 1, 500);
+  // Blank = no minimum, same convention as a pass code's "expires in days":
+  // an explicit absence rather than 0, which would auto-cancel every class
+  // with zero bookings.
+  const minCapacityRaw = str(form, "minCapacity");
+  const minCapacity = minCapacityRaw ? clamp(num(form, "minCapacity", 1), 1, 500) : null;
+  if (minCapacity !== null && minCapacity > capacity) {
+    return fail("Minimum can't be more than maximum students.", {
+      minCapacity: "Must be at or below maximum students.",
+    });
+  }
+
   const values = {
     title,
     summary,
@@ -233,10 +247,9 @@ export async function saveOfferingAction(
     type: pickEnum(str(form, "type"), OfferingType, "GROUP_CLASS"),
     mode,
     level: pickEnum(str(form, "level"), Level, "ALL_LEVELS"),
-    // Upper bounds mirror the inputs' own max attributes, which a direct POST
-    // skips entirely — an 8-hour cap and 500 seats are already generous.
     durationMin: clamp(num(form, "durationMin", 60), 10, 480),
-    capacity: clamp(num(form, "capacity", 20), 1, 500),
+    capacity,
+    minCapacity,
     venueId: mode === "ONLINE" ? null : venueId,
     isActive: bool(form, "isActive"),
     coverImageUrl: str(form, "coverImageUrl") || null,
@@ -606,48 +619,28 @@ export async function cancelSessionAction(
   const sessionId = str(form, "sessionId");
   const reason = str(form, "reason") || "Cancelled by the instructor.";
 
-  const session = await db.query.classSessions.findFirst({
+  const owns = await db.query.classSessions.findFirst({
     where: and(
       eq(classSessions.id, sessionId),
       eq(classSessions.instructorId, user.instructorProfileId),
     ),
-    with: { bookings: true },
+    columns: { id: true },
   });
-  if (!session) return fail("That class doesn't belong to you.");
-
-  await db
-    .update(classSessions)
-    .set({ status: SessionStatus.CANCELLED, cancelReason: reason })
-    .where(eq(classSessions.id, sessionId));
+  if (!owns) return fail("That class doesn't belong to you.");
 
   // Cancelling by the instructor always returns the credit, whatever the
-  // notice period — the student didn't cause this.
-  let released = 0;
-  for (const b of session.bookings) {
-    if (b.status === BookingStatus.CANCELLED) continue;
-    await cancelBooking({
-      bookingId: b.id,
-      byInstructor: true,
-      asSessionId: sessionId,
-    });
-    released++;
-    await notify({
-      userId: b.studentId,
-      type: NotificationType.CLASS_CANCELLED,
-      title: `Class cancelled: ${session.title}`,
-      body: reason,
-      link: "/dashboard/bookings",
-      email: true,
-    });
-  }
+  // notice period — the student didn't cause this. `cancelClassSession` is
+  // the same mechanism the automatic underfilled-class job uses.
+  const result = await cancelClassSession({ sessionId, reason });
+  if (!result.ok) return fail(result.error);
 
   revalidatePath("/studio/schedule");
   revalidatePath(`/studio/sessions/${sessionId}`);
   revalidatePath(`/classes/${sessionId}`);
 
   return ok(
-    released > 0
-      ? `Class cancelled. ${released} student${released === 1 ? "" : "s"} notified and credits returned.`
+    result.studentsNotified > 0
+      ? `Class cancelled. ${result.studentsNotified} student${result.studentsNotified === 1 ? "" : "s"} notified and credits returned.`
       : "Class cancelled.",
   );
 }
