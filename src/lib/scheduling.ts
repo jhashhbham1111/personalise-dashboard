@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gt, gte, inArray, lt, lte, ne } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNull, lt, lte, ne, or } from "drizzle-orm";
 
 import { availabilityExceptions, classSessions, db, scheduleRules } from "@/db";
 import { SessionStatus } from "./enums";
@@ -112,6 +112,64 @@ export async function materializeAllRules(
   let created = 0;
   for (const r of rules) created += await materializeSessions(r.id, horizonDays);
   return { rules: rules.length, created };
+}
+
+/**
+ * Every clash between a rule's would-be occurrences and what the instructor is
+ * already committed to — the check behind "you're already teaching then".
+ *
+ * Deliberately one query rather than calling findConflictingSessions() per
+ * occurrence: a Mon/Wed/Fri rule expands to ~26 sessions over the horizon, and
+ * 26 round trips on every schedule save is a lot of database for a validation
+ * step. Fetches the instructor's sessions across the whole span once, then
+ * overlaps them in memory.
+ *
+ * `excludeRuleId` matters when *editing*: a rule's own existing sessions
+ * obviously overlap its own new occurrences, and reporting that as a clash
+ * would make an established schedule impossible to edit. Sessions with no rule
+ * at all (one-off classes) are always considered — they're real commitments.
+ */
+export async function findRuleConflicts(args: {
+  instructorId: string;
+  occurrences: { startsAt: Date; endsAt: Date }[];
+  excludeRuleId?: string;
+}): Promise<{ title: string; startsAt: Date; endsAt: Date }[]> {
+  if (args.occurrences.length === 0) return [];
+
+  const spanStart = new Date(
+    Math.min(...args.occurrences.map((o) => o.startsAt.getTime())),
+  );
+  const spanEnd = new Date(
+    Math.max(...args.occurrences.map((o) => o.endsAt.getTime())),
+  );
+
+  const existing = await db
+    .select({
+      title: classSessions.title,
+      startsAt: classSessions.startsAt,
+      endsAt: classSessions.endsAt,
+    })
+    .from(classSessions)
+    .where(
+      and(
+        eq(classSessions.instructorId, args.instructorId),
+        inArray(classSessions.status, [SessionStatus.SCHEDULED, SessionStatus.LIVE]),
+        // `ne` alone would drop one-off sessions: in SQL `NULL <> 'x'` is NULL,
+        // not true, so a null scheduleRuleId would silently fail the filter.
+        args.excludeRuleId
+          ? or(
+              isNull(classSessions.scheduleRuleId),
+              ne(classSessions.scheduleRuleId, args.excludeRuleId),
+            )
+          : undefined,
+        lt(classSessions.startsAt, spanEnd),
+        gt(classSessions.endsAt, spanStart),
+      ),
+    );
+
+  return existing.filter((s) =>
+    args.occurrences.some((o) => s.startsAt < o.endsAt && s.endsAt > o.startsAt),
+  );
 }
 
 /**

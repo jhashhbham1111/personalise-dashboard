@@ -8,7 +8,7 @@ import { emptyState } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
-import { Modal, ModalClose } from "@/components/ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 type Venue = {
@@ -37,6 +37,7 @@ export function VenueDialog({
 }) {
   const [state, action] = useActionState(saveVenueAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
   const uid = venue?.id ?? "new";
 
   return (

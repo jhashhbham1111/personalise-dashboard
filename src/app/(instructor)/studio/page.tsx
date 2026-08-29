@@ -174,7 +174,7 @@ export default async function StudioPage() {
           sub={`${formatMoney(stats.revenuePaise)} all time`}
         />
         <StatTile
-          label="Awaiting payment"
+          label="Pending payment"
           value={formatMoney(stats.pendingPaise)}
           tone={stats.pendingPaise > 0 ? "accent" : "default"}
         />

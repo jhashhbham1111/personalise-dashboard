@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
-import { Modal, ModalClose } from "@/components/ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 type Plan = {
@@ -101,6 +101,7 @@ function PlanDialog({
 }) {
   const [state, action] = useActionState(savePlanAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
   const [kind, setKind] = useState(plan?.kind ?? "PER_SESSION");
 
   // A monthly pass is unlimited within its validity, so the session count is
@@ -232,6 +233,7 @@ function RetirePlanButton({
 }) {
   const [state, action] = useActionState(deletePlanAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
 
   return (
     <Modal

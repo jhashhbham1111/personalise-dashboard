@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
-import { Modal, ModalClose } from "@/components/ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "@/components/ui/modal";
 import { Alert } from "@/components/ui/page";
 import { SubmitButton } from "@/components/ui/submit-button";
 
@@ -39,6 +39,7 @@ export function DeleteAccount({
 }) {
   const [state, action] = useActionState(deleteAccountAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
   const [typed, setTyped] = useState("");
 
   const matches = typed.trim().toLowerCase() === email.toLowerCase();

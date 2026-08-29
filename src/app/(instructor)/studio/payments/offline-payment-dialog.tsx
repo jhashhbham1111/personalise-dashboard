@@ -8,7 +8,7 @@ import { emptyState } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
-import { Modal, ModalClose } from "@/components/ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { StudentPicker } from "./student-picker";
 
@@ -37,6 +37,7 @@ export function OfflinePaymentDialog({
 }) {
   const [state, action] = useActionState(recordOfflinePaymentAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
   const [planId, setPlanId] = useState(plans[0]?.id ?? CUSTOM);
 
   const selectedPlan = plans.find((p) => p.id === planId);

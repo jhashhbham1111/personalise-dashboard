@@ -137,7 +137,7 @@ export default async function StudioPaymentsPage({
         />
         <StatTile label="All time" value={formatMoney(Number(totals.paidAllTime))} />
         <StatTile
-          label="Awaiting payment"
+          label="Pending payment"
           value={formatMoney(Number(totals.owed))}
           sub={
             Number(totals.owedCount) > 0

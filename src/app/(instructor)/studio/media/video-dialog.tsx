@@ -9,7 +9,7 @@ import { VIDEO_TYPE_LABEL, VISIBILITY_LABEL } from "@/lib/enums";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
-import { Modal, ModalClose } from "@/components/ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 type Video = {
@@ -41,6 +41,7 @@ export function VideoDialog({
 }) {
   const [state, action] = useActionState(saveVideoAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
   const [type, setType] = useState(video?.type ?? "VLOG");
   const uid = video?.id ?? "new";
 

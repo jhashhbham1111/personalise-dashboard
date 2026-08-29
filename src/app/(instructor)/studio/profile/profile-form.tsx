@@ -10,7 +10,6 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { ImageUpload } from "@/components/ui/image-upload";
 
 export function ProfileForm({
   initial,
@@ -23,8 +22,6 @@ export function ProfileForm({
     disciplines: string[];
     languages: string[];
     certifications: string[];
-    avatarUrl: string | null;
-    coverImageUrl: string | null;
     instagramUrl: string | null;
     youtubeUrl: string | null;
     websiteUrl: string | null;
@@ -34,44 +31,22 @@ export function ProfileForm({
   };
 }) {
   const [state, action] = useActionState(saveProfileAction, emptyState);
-  const [disciplines, setDisciplines] = useState<string[]>(initial.disciplines);
+  // One discipline, matching onboarding: every class inherits it, so letting
+  // this drift back to several would reintroduce the "which one is this
+  // class?" question the class form no longer asks. Seeded from the first
+  // stored value, so a profile saved under the old multi-select still opens.
+  const [discipline, setDiscipline] = useState<string>(
+    initial.disciplines[0] ?? "",
+  );
 
-  function toggle(d: string) {
-    setDisciplines((prev) =>
-      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d],
-    );
-  }
 
   return (
     <form action={action} className="space-y-5">
-      {disciplines.map((d) => (
-        <input key={d} type="hidden" name="disciplines" value={d} />
-      ))}
+      {discipline ? (
+        <input type="hidden" name="disciplines" value={discipline} />
+      ) : null}
 
       <FormMessage state={state} />
-
-      <Card className="p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-          Photos
-        </h2>
-        <div className="flex flex-wrap gap-6">
-          <ImageUpload
-            name="avatarUrl"
-            folder="avatars"
-            defaultUrl={initial.avatarUrl}
-            label="Profile photo"
-            shape="square"
-          />
-          <ImageUpload
-            name="coverImageUrl"
-            folder="covers"
-            defaultUrl={initial.coverImageUrl}
-            label="Cover image"
-            shape="wide"
-            className="flex-1 min-w-48"
-          />
-        </div>
-      </Card>
 
       <Card className="space-y-4 p-5">
         <Field
@@ -122,16 +97,19 @@ export function ProfileForm({
       <Card className="space-y-4 p-5">
         <fieldset>
           <legend className="mb-2 text-sm font-medium text-ink">
-            What you teach
+            What you teach{" "}
+            <span className="font-normal text-ink-faint">
+              every class you create uses this
+            </span>
           </legend>
           <div className="flex flex-wrap gap-1.5">
             {DISCIPLINES.map((d) => {
-              const on = disciplines.includes(d);
+              const on = discipline === d;
               return (
                 <button
                   key={d}
                   type="button"
-                  onClick={() => toggle(d)}
+                  onClick={() => setDiscipline(d)}
                   aria-pressed={on}
                   className={cn(
                     "rounded-full border px-3 py-1 text-sm transition-colors",

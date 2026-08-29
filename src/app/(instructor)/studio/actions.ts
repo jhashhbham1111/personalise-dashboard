@@ -42,7 +42,12 @@ import {
 } from "@/lib/enums";
 import { notify } from "@/lib/notify";
 import { isValidUpiId, normaliseUpiId } from "@/lib/payment-details";
-import { materializeSessions } from "@/lib/scheduling";
+import {
+  DEFAULT_HORIZON_DAYS,
+  findRuleConflicts,
+  materializeSessions,
+} from "@/lib/scheduling";
+import { expandRuleOccurrences } from "@/lib/recurrence";
 import {
   bool,
   clamp,
@@ -63,7 +68,13 @@ import {
   stringifyList,
   tidyTitle,
 } from "@/lib/utils";
-import { fromDateInput, timeInputToMinutes } from "@/lib/time";
+import {
+  addDays,
+  addMinutes,
+  formatDateTime,
+  fromDateInput,
+  timeInputToMinutes,
+} from "@/lib/time";
 
 /**
  * Instructor studio server actions.
@@ -120,7 +131,9 @@ export async function saveProfileAction(
       paymentNote: str(form, "paymentNote") || null,
       bio: str(form, "bio"),
       yearsExperience: num(form, "yearsExperience"),
-      disciplines: stringifyList(strList(form, "disciplines")),
+      // One discipline per instructor (see the onboarding action) — kept as a
+      // JSON array because the instructor filter matches it with a LIKE.
+      disciplines: stringifyList(strList(form, "disciplines").slice(0, 1)),
       languages: stringifyList(commaList(form, "languages")),
       certifications: stringifyList(commaList(form, "certifications")),
       instagramUrl: str(form, "instagramUrl") || null,
@@ -227,12 +240,23 @@ export async function saveOfferingAction(
   // still appearing in listings.
   // Upper bounds mirror the inputs' own max attributes, which a direct POST
   // skips entirely — an 8-hour cap and 500 seats are already generous.
-  const capacity = clamp(num(form, "capacity", 20), 1, 500);
+  const type = pickEnum(str(form, "type"), OfferingType, "GROUP_CLASS");
+  const isPrivate = type === OfferingType.ONE_ON_ONE;
+
+  // A 1-on-1 seats exactly one person, whatever the form said. The field is
+  // hidden for this type, but the value is settled here rather than there:
+  // a direct POST could otherwise store a "1-on-1" class with 40 seats, and
+  // the booking code would cheerfully fill every one of them.
+  const capacity = isPrivate ? 1 : clamp(num(form, "capacity", 20), 1, 500);
   // Blank = no minimum, same convention as a pass code's "expires in days":
   // an explicit absence rather than 0, which would auto-cancel every class
-  // with zero bookings.
+  // with zero bookings. Meaningless for a 1-on-1, which either has its one
+  // student or is empty.
   const minCapacityRaw = str(form, "minCapacity");
-  const minCapacity = minCapacityRaw ? clamp(num(form, "minCapacity", 1), 1, 500) : null;
+  const minCapacity =
+    isPrivate || !minCapacityRaw
+      ? null
+      : clamp(num(form, "minCapacity", 1), 1, 500);
   if (minCapacity !== null && minCapacity > capacity) {
     return fail("Minimum can't be more than maximum students.", {
       minCapacity: "Must be at or below maximum students.",
@@ -244,7 +268,7 @@ export async function saveOfferingAction(
     summary,
     description: str(form, "description"),
     discipline: pickFrom(str(form, "discipline"), DISCIPLINES, "Yoga"),
-    type: pickEnum(str(form, "type"), OfferingType, "GROUP_CLASS"),
+    type,
     mode,
     level: pickEnum(str(form, "level"), Level, "ALL_LEVELS"),
     durationMin: clamp(num(form, "durationMin", 60), 10, 480),
@@ -516,6 +540,38 @@ export async function saveScheduleRuleAction(
     venueId: mode === "ONLINE" ? null : venueId,
     isActive: true,
   };
+
+  // One person can't teach two classes at once. Checked here, before anything
+  // is written, so a clashing save changes nothing at all — rather than after
+  // materializing, which would leave the instructor to clean up sessions that
+  // shouldn't exist. Editing an existing rule excludes that rule's own
+  // sessions, or every edit would collide with itself.
+  const now = new Date();
+  const conflicts = await findRuleConflicts({
+    instructorId: user.instructorProfileId,
+    excludeRuleId: ruleId || undefined,
+    occurrences: expandRuleOccurrences(
+      values,
+      now,
+      addDays(now, DEFAULT_HORIZON_DAYS),
+    ).map((startsAt) => ({
+      startsAt,
+      endsAt: addMinutes(startsAt, values.durationMin),
+    })),
+  });
+
+  if (conflicts.length > 0) {
+    const shown = conflicts
+      .slice(0, 3)
+      .map((c) => `${c.title} on ${formatDateTime(c.startsAt, timezone)}`)
+      .join("; ");
+    const more =
+      conflicts.length > 3 ? ` (and ${conflicts.length - 3} more)` : "";
+    return fail(
+      `That clashes with a class you're already teaching — ${shown}${more}. Pick a different time, or cancel the other class first.`,
+      { startTime: "You're already teaching then." },
+    );
+  }
 
   let targetId = ruleId;
   if (ruleId) {

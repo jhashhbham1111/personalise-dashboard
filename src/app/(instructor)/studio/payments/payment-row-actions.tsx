@@ -8,7 +8,7 @@ import { emptyState } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
-import { Modal, ModalClose } from "@/components/ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 type Row = {
@@ -44,6 +44,7 @@ export function PaymentRowActions({ row }: { row: Row }) {
 function EditDialog({ row }: { row: Row }) {
   const [state, action] = useActionState(updatePaymentAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
 
   return (
     <Modal
@@ -119,6 +120,7 @@ function EditDialog({ row }: { row: Row }) {
 function VoidDialog({ row }: { row: Row }) {
   const [state, action] = useActionState(voidPaymentAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
 
   return (
     <Modal

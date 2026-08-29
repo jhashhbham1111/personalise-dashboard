@@ -156,6 +156,18 @@ export const MODE_LABEL: Record<string, string> = {
   HYBRID: "Hybrid",
 };
 
+/**
+ * The modes an instructor can actually choose.
+ *
+ * Hybrid is deliberately absent. Nothing in the app ever branched on it —
+ * every check is `mode === "ONLINE" ? … : …` — so a Hybrid class behaved
+ * exactly like an in-person one (venue required, no join link), while
+ * promising students a choice that didn't exist. The value and its label
+ * stay in place so any row already saved as Hybrid still renders correctly
+ * rather than appearing blank.
+ */
+export const SELECTABLE_MODES = [ClassMode.ONLINE, ClassMode.OFFLINE] as const;
+
 export const LEVEL_LABEL: Record<string, string> = {
   BEGINNER: "Beginner",
   INTERMEDIATE: "Intermediate",

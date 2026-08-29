@@ -6,7 +6,7 @@ import { deleteVenueAction } from "../actions";
 import { emptyState } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/form-message";
-import { Modal, ModalClose } from "@/components/ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 export function DeleteVenueButton({
@@ -18,6 +18,7 @@ export function DeleteVenueButton({
 }) {
   const [state, action] = useActionState(deleteVenueAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
 
   return (
     <Modal

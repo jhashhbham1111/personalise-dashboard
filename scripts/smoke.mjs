@@ -259,6 +259,27 @@ try {
   await shot("17-studio");
 
   /* -- create a class -------------------------------------------------- */
+  // Each run leaves behind a class and the schedule it built. The second run
+  // would then try to book the same instructor into the same 11:00 slot and
+  // be refused — correctly, by the double-booking guard in
+  // saveScheduleRuleAction. Clearing previous runs' leavings keeps the suite
+  // repeatable against a database that isn't freshly seeded.
+  const { createClient: mkClient } = await import("@libsql/client");
+  const cleanupDb = mkClient({
+    url: process.env.DATABASE_URL || "file:dev.db",
+    authToken: process.env.DATABASE_AUTH_TOKEN,
+  });
+  await cleanupDb.execute(`
+    delete from class_sessions where schedule_rule_id in (
+      select sr.id from schedule_rules sr
+      join offerings o on o.id = sr.offering_id
+      where o.title like 'Smoke Test Class %'
+    )`);
+  await cleanupDb.execute(`
+    delete from schedule_rules where offering_id in (
+      select id from offerings where title like 'Smoke Test Class %'
+    )`);
+
   const className = `Smoke Test Class ${Date.now()}`;
   await page.goto(`${BASE}/studio/offerings/new`, { waitUntil: "domcontentloaded" });
   await page.fill('input[name="title"]', className);
@@ -308,7 +329,15 @@ try {
   await page.getByRole("button", { name: /new class time/i }).first().click();
   await page.waitForTimeout(600);
   await page.selectOption('select[name="offeringId"]', { label: className });
-  await page.fill('input[name="startTime"]', "07:15");
+  // startTime is a hidden input fed by two <select>s (see TimeSelect) — the
+  // native time picker was unusable on iOS. Drive the selects, not the input.
+  //
+  // 11:00, not the 07:15 this used to use: the seeded instructor already
+  // teaches Mon/Wed/Fri 06:30–07:30, and saveScheduleRuleAction now refuses a
+  // rule that overlaps one the instructor is already committed to. A late
+  // morning slot keeps this fixture clear of the seed data.
+  await page.selectOption('select[aria-label="Hour"]', "11");
+  await page.selectOption('select[aria-label="Minute"]', "0");
   await shot("22-studio-schedule-builder", false);
   await page.getByRole("button", { name: /create schedule/i }).click();
   await page.waitForTimeout(3500);

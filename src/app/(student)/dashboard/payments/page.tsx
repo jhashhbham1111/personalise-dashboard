@@ -55,7 +55,7 @@ export default async function PaymentsPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <StatTile label="Total paid" value={formatMoney(totalPaid)} tone="brand" />
         <StatTile
-          label="Awaiting payment"
+          label="Pending payment"
           value={formatMoney(outstanding)}
           tone={outstanding > 0 ? "accent" : "default"}
         />

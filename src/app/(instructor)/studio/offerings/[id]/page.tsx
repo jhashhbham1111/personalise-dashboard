@@ -3,9 +3,9 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { and, asc, eq } from "drizzle-orm";
 
-import { db, offerings, pricingPlans, venues } from "@/db";
+import { db, instructorProfiles, offerings, pricingPlans, venues } from "@/db";
 import { requireInstructor } from "@/lib/auth";
-import { paiseToRupees } from "@/lib/utils";
+import { paiseToRupees, parseList } from "@/lib/utils";
 import { Alert, PageHeader } from "@/components/ui/page";
 import { ButtonLink } from "@/components/ui/button";
 import { OfferingForm } from "../offering-form";
@@ -30,6 +30,14 @@ export default async function EditOfferingPage({
     with: { plans: { orderBy: [asc(pricingPlans.sortOrder)] } },
   });
   if (!offering) notFound();
+
+  // Lets the form fold the discipline picker away when this class already
+  // matches the one discipline on the instructor's profile.
+  const profile = await db.query.instructorProfiles.findFirst({
+    where: eq(instructorProfiles.id, user.instructorProfileId),
+    columns: { disciplines: true },
+  });
+  const profileDisciplines = parseList<string>(profile?.disciplines);
 
   const venueRows = await db
     .select({ id: venues.id, name: venues.name, city: venues.city })
@@ -88,6 +96,7 @@ export default async function EditOfferingPage({
 
       <OfferingForm
         venues={venueRows}
+        profileDisciplines={profileDisciplines}
         initial={{
           id: offering.id,
           title: offering.title,

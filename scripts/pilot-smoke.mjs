@@ -108,6 +108,9 @@ try {
   }
 
   await instructor.goto(`${BASE}/studio/payments`, { waitUntil: "domcontentloaded" });
+  // domcontentloaded fires before React hydrates; clicking then does nothing
+  // and the dialog never opens.
+  await instructor.waitForLoadState("networkidle");
   await instructor.getByRole("button", { name: /record a payment/i }).first().click();
   await instructor.waitForTimeout(500);
 
@@ -143,6 +146,9 @@ try {
 
   /* ------------------ a second payment tops the same pass up, not a new one */
   await instructor.goto(`${BASE}/studio/payments`, { waitUntil: "domcontentloaded" });
+  // domcontentloaded fires before React hydrates; clicking then does nothing
+  // and the dialog never opens.
+  await instructor.waitForLoadState("networkidle");
   await instructor.getByRole("button", { name: /record a payment/i }).first().click();
   await instructor.waitForTimeout(400);
   await pickStudent(instructor, studentEmail);
@@ -163,10 +169,18 @@ try {
 
   /* ------------------------------ an unknown person can't be picked at all */
   await instructor.goto(`${BASE}/studio/payments`, { waitUntil: "domcontentloaded" });
+  // domcontentloaded fires before React hydrates; clicking then does nothing
+  // and the dialog never opens.
+  await instructor.waitForLoadState("networkidle");
   await instructor.getByRole("button", { name: /record a payment/i }).first().click();
   await instructor.waitForTimeout(400);
   await instructor.fill("#student-search", "nobody-here@example.com");
-  await instructor.waitForTimeout(1500);
+  // The search is debounced, so wait for the answer rather than guessing how
+  // long it takes — a fixed sleep raced it on a loaded machine.
+  await instructor
+    .getByText(/no student account matches/i)
+    .waitFor({ timeout: 15000 })
+    .catch(() => {});
   const dialogText = (await instructor.locator("body").innerText()).toLowerCase();
   check(
     "an unknown person explains what to do rather than failing silently",

@@ -7,7 +7,7 @@ import { deletePostAction } from "../actions";
 import { emptyState } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/form-message";
-import { Modal, ModalClose } from "@/components/ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 export function DeletePostButton({
@@ -19,6 +19,7 @@ export function DeletePostButton({
 }) {
   const [state, action] = useActionState(deletePostAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
 
   return (
     <Modal

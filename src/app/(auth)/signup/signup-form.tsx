@@ -127,7 +127,7 @@ export function SignupForm({
       </Field>
 
       <SubmitButton block size="lg" pendingText="Creating your account…">
-        {intent === "teach" ? "Start teaching" : "Create account"}
+        {intent === "teach" ? "Start teaching" : "Start learning"}
       </SubmitButton>
     </form>
   );

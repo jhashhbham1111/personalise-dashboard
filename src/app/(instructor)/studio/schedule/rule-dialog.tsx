@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 
 import { saveScheduleRuleAction } from "../actions";
 import { emptyState } from "@/lib/actions";
-import { DAY_LABELS, MODE_LABEL } from "@/lib/enums";
+import { ClassMode, DAY_LABELS, MODE_LABEL, SELECTABLE_MODES } from "@/lib/enums";
 import { DEFAULT_HORIZON_DAYS, expandRuleOccurrences } from "@/lib/recurrence";
 import {
   COMMON_TIMEZONES,
@@ -19,7 +19,7 @@ import { parseList, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
-import { Modal, ModalClose } from "@/components/ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { TimeSelect } from "@/components/ui/time-select";
 
@@ -73,6 +73,7 @@ export function RuleDialog({
 }) {
   const [state, action] = useActionState(saveScheduleRuleAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
 
   const [days, setDays] = useState<number[]>(
     rule ? parseList<number>(rule.daysOfWeek) : [1, 3, 5],
@@ -223,7 +224,12 @@ export function RuleDialog({
         </fieldset>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Start time" htmlFor="startTime" hint="in 5-minute steps">
+          <Field
+            label="Start time"
+            htmlFor="startTime"
+            hint="in 5-minute steps"
+            error={state.fields?.startTime}
+          >
             {/* TimeSelect uses paired <select> elements rather than
                 <input type="time"> — the native OS time picker ignores the
                 step attribute on iOS and Chrome's phone emulator, and its
@@ -276,11 +282,15 @@ export function RuleDialog({
               value={mode}
               onChange={(e) => setMode(e.target.value)}
             >
-              {Object.entries(MODE_LABEL).map(([v, label]) => (
+              {SELECTABLE_MODES.map((v) => (
                 <option key={v} value={v}>
-                  {label}
+                  {MODE_LABEL[v]}
                 </option>
               ))}
+              {/* Keeps a pre-existing Hybrid schedule readable. */}
+              {mode === ClassMode.HYBRID ? (
+                <option value={ClassMode.HYBRID}>{MODE_LABEL.HYBRID}</option>
+              ) : null}
             </Select>
           </Field>
 

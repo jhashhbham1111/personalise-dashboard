@@ -15,25 +15,31 @@ export function OnboardingForm() {
     createInstructorProfileAction,
     emptyState,
   );
-  const [selected, setSelected] = useState<string[]>([]);
-
-  function toggle(d: string) {
-    setSelected((prev) =>
-      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d],
-    );
-  }
+  /**
+   * One discipline, not several.
+   *
+   * It used to be a multi-select, which meant every class an instructor
+   * created afterwards had to ask "…but which of them is this one?" — the
+   * same question twice. Asking once, here, for the thing they teach lets
+   * every class simply inherit it. Someone who genuinely teaches two things
+   * picks the one they lead with; the other can go in their headline.
+   */
+  const [selected, setSelected] = useState<string>("");
 
   return (
     <form action={action} className="mt-6 space-y-5">
-      {selected.map((d) => (
-        <input key={d} type="hidden" name="disciplines" value={d} />
-      ))}
+      {selected ? (
+        <input type="hidden" name="disciplines" value={selected} />
+      ) : null}
 
       {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
 
       <fieldset>
         <legend className="mb-2 text-sm font-medium text-ink">
-          What do you teach?
+          What do you teach?{" "}
+          <span className="font-normal text-ink-faint">
+            pick one — every class you create uses it
+          </span>
           {state.fields?.disciplines ? (
             <span className="ml-2 text-xs font-normal text-danger-700">
               {state.fields.disciplines}
@@ -42,12 +48,12 @@ export function OnboardingForm() {
         </legend>
         <div className="flex flex-wrap gap-1.5">
           {DISCIPLINES.map((d) => {
-            const on = selected.includes(d);
+            const on = selected === d;
             return (
               <button
                 key={d}
                 type="button"
-                onClick={() => toggle(d)}
+                onClick={() => setSelected(d)}
                 aria-pressed={on}
                 className={cn(
                   "rounded-full border px-3 py-1 text-sm transition-colors",

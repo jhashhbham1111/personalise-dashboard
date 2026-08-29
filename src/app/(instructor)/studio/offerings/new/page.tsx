@@ -2,8 +2,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { and, eq } from "drizzle-orm";
 
-import { db, venues } from "@/db";
+import { db, instructorProfiles, venues } from "@/db";
 import { requireInstructor } from "@/lib/auth";
+import { parseList } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page";
 import { OfferingForm } from "../offering-form";
 
@@ -11,6 +12,14 @@ export const metadata: Metadata = { title: "New class" };
 
 export default async function NewOfferingPage() {
   const user = await requireInstructor();
+
+  // The instructor already chose their disciplines during onboarding; a new
+  // class inherits the one they teach rather than asking again.
+  const profile = await db.query.instructorProfiles.findFirst({
+    where: eq(instructorProfiles.id, user.instructorProfileId),
+    columns: { disciplines: true },
+  });
+  const profileDisciplines = parseList<string>(profile?.disciplines);
 
   const venueRows = await db
     .select({ id: venues.id, name: venues.name, city: venues.city })
@@ -39,11 +48,12 @@ export default async function NewOfferingPage() {
 
       <OfferingForm
         venues={venueRows}
+        profileDisciplines={profileDisciplines}
         initial={{
           title: "",
           summary: "",
           description: "",
-          discipline: "Yoga",
+          discipline: profileDisciplines[0] ?? "Yoga",
           type: "GROUP_CLASS",
           mode: "ONLINE",
           level: "ALL_LEVELS",

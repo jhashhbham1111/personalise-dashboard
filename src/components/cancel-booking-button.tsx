@@ -7,7 +7,7 @@ import { emptyState } from "@/lib/actions";
 import { canCancelFree, FREE_CANCELLATION_HOURS } from "@/lib/booking-policy";
 import { Alert } from "./ui/page";
 import { Button } from "./ui/button";
-import { Modal, ModalClose } from "./ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "./ui/modal";
 import { SubmitButton } from "./ui/submit-button";
 
 export function CancelBookingButton({
@@ -21,6 +21,7 @@ export function CancelBookingButton({
 }) {
   const [state, action] = useActionState(cancelBookingAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
   const free = canCancelFree(new Date(startsAt));
 
   return (

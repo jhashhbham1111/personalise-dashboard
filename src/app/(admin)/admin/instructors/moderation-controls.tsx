@@ -8,7 +8,7 @@ import { emptyState } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
-import { Modal, ModalClose } from "@/components/ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 export type ModerationTarget = {
@@ -30,6 +30,8 @@ export function ModerationControls({ instructor }: { instructor: ModerationTarge
   const [verifyState, verifyAction] = useActionState(setVerifiedAction, emptyState);
   const [suspendState, suspendAction] = useActionState(setSuspendedAction, emptyState);
   const [open, setOpen] = useState(false);
+  // Only the suspend flow lives in a dialog; verifying is a plain inline button.
+  useCloseOnSuccess(suspendState, setOpen);
 
   const message = suspendState.error || suspendState.success ? suspendState : verifyState;
 

@@ -5,10 +5,11 @@ import { useActionState, useState } from "react";
 import { saveOfferingAction } from "../actions";
 import { emptyState } from "@/lib/actions";
 import {
-  DISCIPLINES,
+  ClassMode,
   LEVEL_LABEL,
   MODE_LABEL,
   OFFERING_TYPE_LABEL,
+  SELECTABLE_MODES,
 } from "@/lib/enums";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
@@ -34,13 +35,28 @@ export type OfferingFormValues = {
 export function OfferingForm({
   initial,
   venues,
+  profileDisciplines = [],
 }: {
   initial: OfferingFormValues;
   venues: { id: string; name: string; city: string }[];
+  /** The instructor's own discipline, from their profile. Every class they
+   *  create inherits it, so this form never asks for one. */
+  profileDisciplines?: string[];
 }) {
   const [state, action] = useActionState(saveOfferingAction, emptyState);
   const [mode, setMode] = useState(initial.mode);
   const [type, setType] = useState(initial.type);
+  /**
+   * Never asked here. The instructor answered "what do you teach?" once, at
+   * onboarding, and every class inherits that — asking again per class was
+   * the same question twice. Changing it means changing the profile, which
+   * is the honest place for it, since it's a fact about the teacher rather
+   * than about any one class.
+   *
+   * Still posted, as a hidden field, because students browse by it: the
+   * filter chips on /classes and /instructors are built from this column.
+   */
+  const discipline = profileDisciplines[0] || initial.discipline;
 
   const needsVenue = mode !== "ONLINE";
   const isPrivate = type === "ONE_ON_ONE";
@@ -86,7 +102,7 @@ export function OfferingForm({
         <Field
           label="Full description"
           htmlFor="description"
-          hint="what a session is actually like"
+          hint="optional — what a session is actually like"
         >
           <Textarea
             id="description"
@@ -103,21 +119,9 @@ export function OfferingForm({
           Format
         </h2>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Discipline" htmlFor="discipline">
-            <Select
-              id="discipline"
-              name="discipline"
-              defaultValue={initial.discipline}
-            >
-              {DISCIPLINES.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </Select>
-          </Field>
+        <input type="hidden" name="discipline" value={discipline} />
 
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Type" htmlFor="type">
             <Select
               id="type"
@@ -140,11 +144,16 @@ export function OfferingForm({
               value={mode}
               onChange={(e) => setMode(e.target.value)}
             >
-              {Object.entries(MODE_LABEL).map(([v, label]) => (
+              {SELECTABLE_MODES.map((v) => (
                 <option key={v} value={v}>
-                  {label}
+                  {MODE_LABEL[v]}
                 </option>
               ))}
+              {/* A class saved as Hybrid before the option was withdrawn keeps
+                  showing its real value instead of silently reading as Online. */}
+              {mode === ClassMode.HYBRID ? (
+                <option value={ClassMode.HYBRID}>{MODE_LABEL.HYBRID}</option>
+              ) : null}
             </Select>
           </Field>
 
@@ -170,21 +179,21 @@ export function OfferingForm({
             />
           </Field>
 
-          <Field
-            label="Maximum students"
-            htmlFor="capacity"
-            hint={isPrivate ? "1-on-1 classes are capped at 1" : "per session"}
-          >
-            <Input
-              id="capacity"
-              name="capacity"
-              type="number"
-              min={1}
-              max={500}
-              defaultValue={isPrivate ? 1 : initial.capacity}
-              key={isPrivate ? "private" : "group"}
-            />
-          </Field>
+          {/* A 1-on-1 seats one person by definition, so asking is noise —
+              and the old editable field let you type 40 into it. The action
+              forces 1 for this type regardless of what's posted. */}
+          {!isPrivate ? (
+            <Field label="Maximum students" htmlFor="capacity" hint="per session">
+              <Input
+                id="capacity"
+                name="capacity"
+                type="number"
+                min={1}
+                max={500}
+                defaultValue={initial.capacity}
+              />
+            </Field>
+          ) : null}
 
           {!isPrivate ? (
             <Field

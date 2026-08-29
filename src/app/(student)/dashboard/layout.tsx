@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Ticket } from "lucide-react";
 
 import { requireUser } from "@/lib/auth";
+import { Role } from "@/lib/enums";
 import { SiteHeader } from "@/components/site-header";
 
 const TABS = [
@@ -17,12 +18,23 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireUser("/dashboard");
+  const user = await requireUser("/dashboard");
+
+  /**
+   * Settings lives under /dashboard, and it's the one link here an instructor
+   * is given — so opening it used to hand a teacher a student's navigation:
+   * My passes, Payments, and a "Redeem a code" button. Instructors *generate*
+   * pass codes (Studio → Pass codes); redeeming one is the student side of
+   * that exchange. The pages still work if they're reached directly; they
+   * just stop being advertised to someone they don't belong to.
+   */
+  const isStudent = user.role === Role.STUDENT;
 
   return (
     <div className="min-h-screen">
-      <SiteHeader homeHref="/dashboard" showPublicNav={false} />
+      <SiteHeader homeHref={isStudent ? "/dashboard" : "/studio"} showPublicNav={false} />
 
+      {isStudent ? (
       <div className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 sm:px-6">
           <nav className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
@@ -56,6 +68,7 @@ export default async function DashboardLayout({
           </Link>
         </div>
       </div>
+      ) : null}
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
     </div>

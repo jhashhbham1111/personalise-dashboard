@@ -8,7 +8,7 @@ import { pluralize } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
-import { Modal, ModalClose } from "@/components/ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 export function CancelSessionButton({
@@ -22,6 +22,7 @@ export function CancelSessionButton({
 }) {
   const [state, action] = useActionState(cancelSessionAction, emptyState);
   const [open, setOpen] = useState(false);
+  useCloseOnSuccess(state, setOpen);
 
   return (
     <Modal

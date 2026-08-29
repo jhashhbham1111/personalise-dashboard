@@ -238,19 +238,24 @@ export async function createInstructorProfileAction(
   // Filtered against the known list rather than trusted: the discipline chips
   // students browse by are built from DISCIPLINES, so anything else stored
   // here is a profile that can never be found through the filter.
+  // One discipline per instructor: whatever they pick here is what every
+  // class they create inherits, so the class form never has to ask again.
+  // Still stored as a JSON array — the instructor filters match on it with
+  // a LIKE, and keeping the shape means none of that has to change.
   const disciplines = form
     .getAll("disciplines")
     .map(String)
     .filter((d): d is (typeof DISCIPLINES)[number] =>
       (DISCIPLINES as readonly string[]).includes(d),
-    );
+    )
+    .slice(0, 1);
   const yearsExperience = clamp(Number(str(form, "yearsExperience")) || 0, 0, 80);
 
   const fields: Record<string, string> = {};
   if (headline.length < 10)
     fields.headline = "A sentence or two on what you teach and who for.";
   if (!city) fields.city = "Which city are you based in?";
-  if (disciplines.length === 0) fields.disciplines = "Pick at least one.";
+  if (disciplines.length === 0) fields.disciplines = "Pick the one you teach.";
   if (Object.keys(fields).length) return fail("Check the highlighted fields.", fields);
 
   const existing = await db.query.instructorProfiles.findFirst({

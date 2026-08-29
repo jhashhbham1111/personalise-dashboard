@@ -4,7 +4,38 @@ import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
+import type { ActionState } from "@/lib/actions";
 import { cn } from "@/lib/utils";
+
+/**
+ * Closes a modal once the action inside it has succeeded.
+ *
+ * Without this a dialog sits there after saving, showing a small success line
+ * that's easy to miss — so people click the button a second time, and on an
+ * edit form (where the values are still filled in) that writes twice.
+ *
+ * Keyed on the state object's identity, not its message: `useActionState`
+ * hands back a fresh object per submission, so adding two passes in a row
+ * still closes both times even though the message is identical.
+ *
+ * `close` must be stable across renders — pass a `useState` setter directly,
+ * not an inline arrow, or the effect will re-run on every render.
+ *
+ * Not for every dialog: one whose success state *is* the payload — the pass
+ * code generator, which reveals the codes it just made — has to stay open.
+ */
+export function useCloseOnSuccess(
+  state: ActionState,
+  close: (open: false) => void,
+) {
+  const handled = React.useRef<ActionState | null>(null);
+  React.useEffect(() => {
+    if (state.success && handled.current !== state) {
+      handled.current = state;
+      close(false);
+    }
+  }, [state, close]);
+}
 
 /**
  * Uncontrolled modal: pass the opener as `trigger`. Used for confirm-and-act

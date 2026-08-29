@@ -47,6 +47,9 @@ try {
   /* ------------------------------------------------ 1. mobile navigation */
   const phone = await browser.newPage({ viewport: PHONE });
   await phone.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
+  // domcontentloaded fires before React hydrates, so a click here can land on
+  // a button that isn't interactive yet and silently do nothing.
+  await phone.waitForLoadState("networkidle");
 
   const menuButton = phone.getByRole("button", { name: /open menu/i });
   check(
@@ -63,7 +66,11 @@ try {
   check("public nav links are not in the phone header until opened", !navBefore);
 
   await menuButton.click();
-  await phone.waitForTimeout(400);
+  // Wait for the sheet itself, not a fixed delay: a 400ms sleep raced the
+  // dialog's open animation on a slow machine and failed intermittently.
+  await phone
+    .locator('[role="dialog"]')
+    .waitFor({ state: "visible", timeout: 10000 });
   const linkNames = ["Instructors", "Classes", "Videos"];
   const visible = [];
   for (const name of linkNames) {
@@ -346,6 +353,9 @@ try {
 
   /* ------------------------------------------ 11. date filter still applies */
   await desktop.goto(`${BASE}/classes`, { waitUntil: "domcontentloaded" });
+  // The filter bar submits from the client, so the field has to be hydrated
+  // before filling it means anything.
+  await desktop.waitForLoadState("networkidle");
   const dateInput = desktop.locator('input[name="from"]');
   await dateInput.fill("2026-09-01");
   await desktop.waitForURL(/from=2026-09-01/, { timeout: 15000 });
