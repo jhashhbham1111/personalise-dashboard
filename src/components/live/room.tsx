@@ -32,43 +32,16 @@ import { useLiveRoom, useScreenShareSupport } from "./use-live-room";
 import type { LiveParticipant, SimPeer } from "./types";
 
 /**
- * Grid position at `md` and up.
- *
- * Below `md` the tiles are split into a stage tile plus a scrolling strip, which
- * changes their DOM order. These put the desktop grid back the way it has always
- * read — you first, then everyone else — without a second copy of the tree (each
- * participant may only be mounted once, since `attachVideo` keys the video
- * element by identity). Written out in full because Tailwind only sees class
- * names that appear literally in the source.
- */
-const MD_ORDER = [
-  "md:order-1",
-  "md:order-2",
-  "md:order-3",
-  "md:order-4",
-  "md:order-5",
-  "md:order-6",
-  "md:order-7",
-  "md:order-8",
-  "md:order-9",
-  "md:order-10",
-  "md:order-11",
-  "md:order-12",
-];
-
-/** Past the twelfth tile the exact order stops mattering — they're all offscreen. */
-function mdOrder(index: number): string {
-  return MD_ORDER[index] ?? "md:order-last";
-}
-
-/**
- * Who gets the big tile on a phone, where there is only room for one.
+ * Who gets the big tile — on every screen size, not just a phone.
  *
  * Deliberately *not* the active speaker: that flips every few seconds in a
- * conversation and would make the whole layout jump while you're trying to read
- * it. Whoever is presenting wins, then the instructor (the reason a student is
- * here), then anyone but yourself — a self-view is the least useful thing to
- * hand a phone screen to.
+ * conversation and would make the whole layout jump while you're trying to
+ * read it. Whoever is presenting wins, then the instructor — a class has one
+ * subject and it is the person teaching it, so the instructor is featured for
+ * everyone including themselves. Ranking `local` ahead of the host (as this
+ * did via the desktop order classes) meant each viewer saw *themselves* in the
+ * big tile and the instructor in the small one, which is backwards for
+ * everyone but the instructor.
  */
 function pickStage(
   participants: LiveParticipant[],
@@ -77,7 +50,7 @@ function pickStage(
 ): LiveParticipant | undefined {
   return (
     participants.find((p) => p.isScreenSharing) ??
-    others.find((p) => p.isHost) ??
+    participants.find((p) => p.isHost) ??
     others[0] ??
     local
   );
@@ -150,9 +123,8 @@ export function LiveRoom({
   const local = useMemo(() => state.participants.find((p) => p.isLocal), [state.participants]);
   const others = useMemo(() => state.participants.filter((p) => !p.isLocal), [state.participants]);
 
-  // [local, ...others] is the order the desktop grid has always used; the phone
-  // layout reshuffles around a stage tile but restores this at `md` via
-  // `mdOrder`.
+  // Everyone who isn't on the stage, in a stable order: you first, then the
+  // rest as they joined, so your own tile doesn't wander around the rail.
   const ordered = useMemo(() => (local ? [local, ...others] : others), [local, others]);
   const stage = useMemo(
     () => pickStage(state.participants, local, others),
@@ -266,46 +238,31 @@ export function LiveRoom({
         </div>
       ) : null}
       <div className="relative flex min-h-0 flex-1">
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4">
-          {/* An N-column grid on a 360px screen is N postage stamps, so below
-              `md` this is one big tile plus a horizontally scrolling strip.
-              `md:contents` dissolves the strip wrapper at desktop widths, which
-              is what lets both layouts share one set of mounted tiles. */}
-          <div
-            className={cn(
-              "flex flex-col gap-3 md:grid",
-              state.participants.length <= 1
-                ? "md:grid-cols-1"
-                : state.participants.length === 2
-                  // Host gets ~70% of the width so the instructor is clearly
-                  // featured and the student tile is a secondary view.
-                  ? "md:grid-cols-[2fr_1fr]"
-                  : "md:grid-cols-2 lg:grid-cols-3",
-            )}
-          >
+        {/* The stage fills the space and the rest ride in a rail: a phone
+            scrolls that rail sideways under the stage, a desktop stands it up
+            beside it. An equal-sized grid was the old behaviour and it gave a
+            one-student class two half-screen tiles with no sense of who was
+            teaching. `md:overflow-hidden` lets the stage be sized by the
+            available height rather than growing past it. */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:overflow-hidden">
+          <div className="flex flex-col gap-3 md:h-full md:flex-row">
             {stage ? (
               <ParticipantTile
                 key={stage.identity}
                 participant={stage}
                 attachVideo={(el) => controller?.attachVideo(stage.identity, el)}
-                className={cn(
-                  "w-full md:w-auto",
-                  mdOrder(ordered.findIndex((p) => p.identity === stage.identity)),
-                )}
+                className="w-full md:aspect-auto md:h-full md:min-w-0 md:flex-1"
               />
             ) : null}
 
             {strip.length > 0 ? (
-              <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:-mx-4 sm:px-4 md:contents">
+              <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:-mx-4 sm:px-4 md:mx-0 md:w-52 md:shrink-0 md:flex-col md:overflow-y-auto md:overflow-x-hidden md:px-0 md:pb-0 lg:w-64">
                 {strip.map((p) => (
                   <ParticipantTile
                     key={p.identity}
                     participant={p}
                     attachVideo={(el) => controller?.attachVideo(p.identity, el)}
-                    className={cn(
-                      "w-36 shrink-0 md:w-auto",
-                      mdOrder(ordered.findIndex((o) => o.identity === p.identity)),
-                    )}
+                    className="w-36 shrink-0 md:w-full"
                   />
                 ))}
               </div>

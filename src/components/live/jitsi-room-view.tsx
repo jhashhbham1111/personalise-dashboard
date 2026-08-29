@@ -99,22 +99,21 @@ export function JitsiRoomView({
           configOverwrite: {
             prejoinPageEnabled: false,
             disableDeepLinking: true,
-            // Jitsi defaults to a direct peer-to-peer connection for 2-person
-            // calls to save server load. Plenty of routers — especially with
-            // "client/AP isolation" on, common on home networks by default —
-            // block that direct device-to-device path even though both
-            // devices are on the same WiFi, which silently breaks exactly the
-            // 1-instructor-1-student case: each side joins fine and sees its
-            // own camera, but the direct link between them never completes.
-            // Forcing every call through Jitsi's own relay server sidesteps
-            // that — each device only needs to reach Jitsi, never the other
-            // device directly.
+            startWithAudioMuted: false,
+            startWithVideoMuted: false,
+            // Start in speaker view so the active speaker (instructor) is
+            // featured large; students appear in the filmstrip.
+            disableTileView: true,
             p2p: { enabled: false },
           },
           interfaceConfigOverwrite: {
             SHOW_JITSI_WATERMARK: false,
             SHOW_WATERMARK_FOR_GUESTS: false,
             MOBILE_APP_PROMO: false,
+            TOOLBAR_BUTTONS: [
+              'microphone', 'camera', 'desktop', 'chat',
+              'participants-pane', 'raisehand', 'fullscreen', 'hangup',
+            ],
           },
         });
         apiRef.current = api;

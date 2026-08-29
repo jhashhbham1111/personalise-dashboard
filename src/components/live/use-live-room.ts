@@ -26,6 +26,7 @@ const EMPTY_STATE: LiveRoomState = {
   participants: [],
   chat: [],
   isRecording: false,
+  audioBlocked: false,
 };
 
 /** Capability, not state: nothing ever changes it, so nothing to subscribe to. */
@@ -106,7 +107,7 @@ export function useLiveRoom(opts: { sessionId: string; peers: SimPeer[] }) {
         // The Jitsi embed connects itself, inside its own iframe — there's
         // no engine to boot here, just the grant for jitsi-room-view.tsx to
         // use directly.
-        setState({ status: "connected", participants: [], chat: [], isRecording: false });
+        setState({ status: "connected", participants: [], chat: [], isRecording: false, audioBlocked: false });
         return;
       }
 

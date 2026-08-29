@@ -67,6 +67,7 @@ export function createMockEngine(opts: {
       participants: Array.from(participants.values()),
       chat: [...chat],
       isRecording: recording,
+      audioBlocked: false,
     });
   }
 

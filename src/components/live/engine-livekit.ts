@@ -31,6 +31,14 @@ export async function createLiveKitEngine(opts: {
 
   const room = new Room({ adaptiveStream: true, dynacast: true });
   const videoEls = new Map<string, HTMLVideoElement>();
+  /**
+   * Remote audio has to be attached to a real DOM element to be heard —
+   * LiveKit hands you the track but never plays it for you, and the
+   * participant tiles only render a <video> element, which carries the video
+   * track alone. Without this the room is permanently silent no matter what
+   * the mic buttons say. The elements are hidden; they exist purely to play.
+   */
+  const audioEls = new Set<HTMLMediaElement>();
   const handRaised = new Set<string>();
   const chat: LiveChatMessage[] = [];
   let status: LiveRoomState["status"] = "connecting";
@@ -125,8 +133,31 @@ export async function createLiveKitEngine(opts: {
     pushSystem(`${p.name || p.identity} left the class.`);
     syncAll();
   });
-  room.on(RoomEvent.TrackSubscribed, () => syncAll());
-  room.on(RoomEvent.TrackUnsubscribed, () => syncAll());
+  room.on(RoomEvent.TrackSubscribed, (track) => {
+    if (track.kind === Track.Kind.Audio) {
+      const el = track.attach();
+      el.autoplay = true;
+      // Safari on iOS refuses to play a media element inline without this.
+      el.setAttribute("playsinline", "");
+      el.style.display = "none";
+      document.body.appendChild(el);
+      audioEls.add(el);
+      // A freshly attached element can still be refused by the browser's
+      // autoplay policy; this resolves once the page has any user gesture,
+      // and `AudioPlaybackStatusChanged` below surfaces the prompt until then.
+      room.startAudio().catch(() => undefined);
+    }
+    syncAll();
+  });
+  room.on(RoomEvent.TrackUnsubscribed, (track) => {
+    if (track.kind === Track.Kind.Audio) {
+      track.detach().forEach((el) => {
+        audioEls.delete(el);
+        el.remove();
+      });
+    }
+    syncAll();
+  });
   room.on(RoomEvent.TrackMuted, () => syncAll());
   room.on(RoomEvent.TrackUnmuted, () => syncAll());
   room.on(RoomEvent.ActiveSpeakersChanged, () => emit());
@@ -279,6 +310,8 @@ export async function createLiveKitEngine(opts: {
     dispose() {
       if (disposed) return;
       disposed = true;
+      audioEls.forEach((el) => el.remove());
+      audioEls.clear();
       room.disconnect().catch(() => undefined);
     },
   };
