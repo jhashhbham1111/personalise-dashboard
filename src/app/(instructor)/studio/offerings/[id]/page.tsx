@@ -99,6 +99,7 @@ export default async function EditOfferingPage({
         profileDisciplines={profileDisciplines}
         initial={{
           id: offering.id,
+          coverImageUrl: offering.coverImageUrl,
           title: offering.title,
           summary: offering.summary,
           description: offering.description,

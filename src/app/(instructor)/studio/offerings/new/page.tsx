@@ -50,6 +50,7 @@ export default async function NewOfferingPage() {
         venues={venueRows}
         profileDisciplines={profileDisciplines}
         initial={{
+          coverImageUrl: null,
           title: "",
           summary: "",
           description: "",
