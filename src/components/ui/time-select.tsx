@@ -12,6 +12,7 @@ function pad(n: number) {
 function parseHHMM(value: string): { h: number; m: number } {
   const [hh, mm] = value.split(":").map(Number);
   const h = isNaN(hh) ? 6 : Math.max(0, Math.min(23, hh));
+  // Snap to nearest 5-minute step
   const raw = isNaN(mm) ? 30 : Math.max(0, Math.min(59, mm));
   const m = Math.round(raw / 5) * 5 >= 60 ? 55 : Math.round(raw / 5) * 5;
   return { h, m };
@@ -31,17 +32,30 @@ export function TimeSelect({
   name,
   defaultValue = "06:30",
   required,
+  onChange,
 }: {
   id?: string;
   name: string;
   defaultValue?: string;
   required?: boolean;
+  /** Fires with the combined "HH:MM" value whenever hour or minute changes —
+   *  for callers that need to react live (e.g. a schedule preview) without
+   *  turning this into a fully controlled component. */
+  onChange?: (value: string) => void;
 }) {
   const init = parseHHMM(defaultValue);
   const [hour, setHour] = useState(init.h);
   const [minute, setMinute] = useState(init.m);
 
   const combined = `${pad(hour)}:${pad(minute)}`;
+
+  function set(next: { h?: number; m?: number }) {
+    const h = next.h ?? hour;
+    const m = next.m ?? minute;
+    if (next.h !== undefined) setHour(next.h);
+    if (next.m !== undefined) setMinute(next.m);
+    onChange?.(`${pad(h)}:${pad(m)}`);
+  }
 
   return (
     <div className="flex items-center gap-2">
@@ -52,7 +66,7 @@ export function TimeSelect({
         id={id}
         aria-label="Hour"
         value={hour}
-        onChange={(e) => setHour(Number(e.target.value))}
+        onChange={(e) => set({ h: Number(e.target.value) })}
         required={required}
         className="h-10 flex-1 rounded-lg border border-line-strong bg-surface px-2 text-sm text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
       >
@@ -68,7 +82,7 @@ export function TimeSelect({
       <select
         aria-label="Minute"
         value={minute}
-        onChange={(e) => setMinute(Number(e.target.value))}
+        onChange={(e) => set({ m: Number(e.target.value) })}
         className="h-10 flex-1 rounded-lg border border-line-strong bg-surface px-2 text-sm text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
       >
         {MINUTES.map((m) => (

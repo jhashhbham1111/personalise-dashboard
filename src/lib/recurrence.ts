@@ -7,6 +7,14 @@ import { parseList } from "./utils";
  * UI as well as from the server-side materializer.
  */
 
+/**
+ * How far ahead `materializeSessions` (src/lib/scheduling.ts) generates real
+ * ClassSession rows. Lives here rather than in scheduling.ts, which is
+ * server-only, so the studio's "this creates N sessions" preview can import
+ * the same number instead of guessing at a copy of it.
+ */
+export const DEFAULT_HORIZON_DAYS = 60;
+
 export type RulePattern = {
   daysOfWeek: string; // JSON number[] — 0 = Sunday
   startTimeMinutes: number;

@@ -36,9 +36,11 @@ export function StudioTabs({ tabs, more = [] }: { tabs: Tab[]; more?: Tab[] }) {
         <DropdownMenu.Root>
           <DropdownMenu.Trigger
             className={cn(
-              "flex items-center gap-1 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors",
-              // Highlighted while you're on one of its pages, so the row still
-              // tells you where you are.
+              "flex items-center gap-1 whitespace-nowrap rounded-md border-b-2 px-3 py-3 text-sm font-medium transition-colors",
+              // rounded-md so *if* the focus-visible outline (globals.css)
+              // ever draws here — a real Tab-key user reaching this tab —
+              // it's a soft highlight rather than a sharp rectangle. It
+              // won't normally draw at all: see onCloseAutoFocus below.
               activeMore
                 ? "border-brand-500 text-brand-700"
                 : "border-transparent text-ink-soft hover:border-brand-300 hover:text-brand-700",
@@ -53,6 +55,18 @@ export function StudioTabs({ tabs, more = [] }: { tabs: Tab[]; more?: Tab[] }) {
               align="start"
               sideOffset={4}
               className="z-50 min-w-44 rounded-lg border border-line bg-surface p-1 shadow-lg"
+              // Radix moves focus back onto the trigger whenever this menu
+              // closes — including the normal case of clicking one of the
+              // links below and navigating away. A *programmatic* focus()
+              // like that one is exactly what the browser's focus-visible
+              // heuristic treats as "show the ring", even though nothing
+              // resembling a keyboard interaction happened — which is what
+              // painted two stray vertical lines around this tab after a
+              // plain click. Every other tab is a bare <a>, which Radix
+              // never touches, so it never showed this. Since this menu is
+              // pure navigation (not actions to keep acting on), there's
+              // nothing to return focus *to* once it closes.
+              onCloseAutoFocus={(e) => e.preventDefault()}
             >
               {more.map((t) => (
                 <DropdownMenu.Item key={t.href} asChild>

@@ -4,10 +4,10 @@ import { and, eq, gt, gte, inArray, lt, lte, ne } from "drizzle-orm";
 
 import { availabilityExceptions, classSessions, db, scheduleRules } from "@/db";
 import { SessionStatus } from "./enums";
-import { expandRuleOccurrences } from "./recurrence";
+import { DEFAULT_HORIZON_DAYS, expandRuleOccurrences } from "./recurrence";
 import { addDays, addMinutes, zonedParts } from "./time";
 
-export { expandRuleOccurrences };
+export { expandRuleOccurrences, DEFAULT_HORIZON_DAYS };
 
 /**
  * Schedule materialization.
@@ -20,8 +20,6 @@ export { expandRuleOccurrences };
  * Runs when a rule is created or edited, and from GET /api/cron/generate-sessions
  * to keep the horizon rolling forward.
  */
-
-export const DEFAULT_HORIZON_DAYS = 60;
 
 /**
  * Create any missing ClassSession rows for a rule, up to the horizon.

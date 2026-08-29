@@ -6,7 +6,15 @@ import { Plus } from "lucide-react";
 import { saveScheduleRuleAction } from "../actions";
 import { emptyState } from "@/lib/actions";
 import { DAY_LABELS, MODE_LABEL } from "@/lib/enums";
-import { COMMON_TIMEZONES, minutesToTimeInput } from "@/lib/time";
+import { DEFAULT_HORIZON_DAYS, expandRuleOccurrences } from "@/lib/recurrence";
+import {
+  COMMON_TIMEZONES,
+  addDays,
+  formatDate,
+  fromDateInput,
+  minutesToTimeInput,
+  timeInputToMinutes,
+} from "@/lib/time";
 import { parseList, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
@@ -80,11 +88,64 @@ export function RuleDialog({
     rule?.durationMin ?? selected?.durationMin ?? 60,
   );
 
+  // These four also default from `rule`/props but stay uncontrolled nowhere
+  // near as often as the ones above — they're tracked purely so the "this
+  // creates N sessions" preview below can react live instead of quoting a
+  // number that ignores whatever start/stop date is actually in the form.
+  const [startTime, setStartTime] = useState(
+    minutesToTimeInput(Math.round((rule?.startTimeMinutes ?? 390) / 5) * 5),
+  );
+  const [scheduleTimezone, setScheduleTimezone] = useState(
+    rule?.timezone ?? timezone,
+  );
+  const [startDate, setStartDate] = useState(rule?.startDate ?? defaultStartDate);
+  const [endDate, setEndDate] = useState(rule?.endDate ?? "");
+
   function toggleDay(d: number) {
     setDays((prev) =>
       prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort(),
     );
   }
+
+  // Mirrors materializeSessions() in src/lib/scheduling.ts: sessions are only
+  // ever generated from *now* forward, capped at the same rolling horizon —
+  // never from the rule's start date, and never past its stop date. A rule
+  // whose stop date has already passed (or is before its own start date)
+  // correctly previews as 0, rather than the flat "days × 60⁄7" estimate this
+  // used to show regardless of what the dates actually said.
+  let previewCount: number | null = null;
+  let rangeInvalid = false;
+  if (days.length > 0 && startDate) {
+    const now = new Date();
+    const parsedStart = fromDateInput(startDate, scheduleTimezone);
+    const parsedEnd = endDate ? fromDateInput(endDate, scheduleTimezone) : null;
+    if (parsedEnd && parsedEnd < parsedStart) {
+      rangeInvalid = true;
+    } else {
+      previewCount = expandRuleOccurrences(
+        {
+          daysOfWeek: JSON.stringify(days),
+          startTimeMinutes: timeInputToMinutes(startTime),
+          timezone: scheduleTimezone,
+          startDate: parsedStart,
+          endDate: parsedEnd,
+        },
+        now,
+        addDays(now, DEFAULT_HORIZON_DAYS),
+      ).length;
+    }
+  }
+
+  const previewMessage =
+    days.length === 0
+      ? "Pick at least one day."
+      : rangeInvalid
+        ? "The stop date is before the start date."
+        : previewCount === 0
+          ? "No sessions will be generated in the next 60 days — check the start and stop dates above."
+          : endDate
+            ? `This creates ${previewCount} session${previewCount === 1 ? "" : "s"}, running through ${formatDate(fromDateInput(endDate, scheduleTimezone), scheduleTimezone)}.`
+            : `This creates ${previewCount} session${previewCount === 1 ? "" : "s"} over the next 60 days.`;
 
   return (
     <Modal
@@ -170,9 +231,8 @@ export function RuleDialog({
             <TimeSelect
               id="startTime"
               name="startTime"
-              defaultValue={minutesToTimeInput(
-                Math.round((rule?.startTimeMinutes ?? 390) / 5) * 5,
-              )}
+              defaultValue={startTime}
+              onChange={setStartTime}
               required
             />
           </Field>
@@ -198,7 +258,8 @@ export function RuleDialog({
             <Select
               id="timezone"
               name="timezone"
-              defaultValue={rule?.timezone ?? timezone}
+              value={scheduleTimezone}
+              onChange={(e) => setScheduleTimezone(e.target.value)}
             >
               {COMMON_TIMEZONES.map((tz) => (
                 <option key={tz} value={tz}>
@@ -228,7 +289,8 @@ export function RuleDialog({
               id="startDate"
               name="startDate"
               type="date"
-              defaultValue={rule?.startDate ?? defaultStartDate}
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
               required
             />
           </Field>
@@ -243,7 +305,8 @@ export function RuleDialog({
               id="endDate"
               name="endDate"
               type="date"
-              defaultValue={rule?.endDate ?? ""}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
             />
           </Field>
         </div>
@@ -271,10 +334,15 @@ export function RuleDialog({
           </Field>
         ) : null}
 
-        <p className="rounded-lg bg-brand-50 px-3 py-2.5 text-xs text-brand-800">
-          {days.length === 0
-            ? "Pick at least one day."
-            : `This creates roughly ${Math.round((days.length * 60) / 7)} sessions over the next 60 days.`}
+        <p
+          className={cn(
+            "rounded-lg px-3 py-2.5 text-xs",
+            days.length > 0 && (rangeInvalid || previewCount === 0)
+              ? "bg-accent-100 text-accent-700"
+              : "bg-brand-50 text-brand-800",
+          )}
+        >
+          {previewMessage}
         </p>
 
         <div className="flex justify-end gap-2">
