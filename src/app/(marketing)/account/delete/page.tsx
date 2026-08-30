@@ -154,7 +154,7 @@ export default function DeleteAccountPage() {
           </li>
           <li>
             let the current passes run out, or voided them in{" "}
-            <Point>Studio → Fees</Point> — refunding anyone who is owed money.
+            <Point>Studio → Earnings</Point> — refunding anyone who is owed money.
           </li>
         </LegalList>
         <p>

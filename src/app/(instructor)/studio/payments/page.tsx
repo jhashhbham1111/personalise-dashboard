@@ -14,7 +14,7 @@ import { Pagination, readPage } from "@/components/pagination";
 import { OfflinePaymentDialog } from "./offline-payment-dialog";
 import { PaymentRowActions } from "./payment-row-actions";
 
-export const metadata: Metadata = { title: "Fees" };
+export const metadata: Metadata = { title: "Earnings" };
 
 const PER_PAGE = 40;
 
@@ -112,7 +112,7 @@ export default async function StudioPaymentsPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Fees"
+        title="Earnings"
         description="Everything students have paid you, and everything still owing."
         actions={
           offeringOptions.length > 0 ? (

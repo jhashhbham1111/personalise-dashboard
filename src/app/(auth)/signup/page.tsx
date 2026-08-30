@@ -15,9 +15,7 @@ export default async function SignupPage({
   return (
     <div>
       <h1 className="text-2xl font-semibold text-ink">Create your account</h1>
-      <p className="mt-1 text-sm text-ink-soft">
-        Takes about thirty seconds. You can switch to teaching later.
-      </p>
+      <p className="mt-1 text-sm text-ink-soft">Takes about thirty seconds.</p>
 
       <SignupForm defaultIntent={intent === "teach" ? "teach" : "learn"} />
 

@@ -175,7 +175,7 @@ export default async function DiagnosticsPage() {
               ? "Students pay by UPI, card or netbanking inside the app. Confirmation comes from the webhook, not the browser."
               : env.onlinePayments
                 ? "ONLINE_PAYMENTS is on but PAYMENT_PROVIDER is still 'mock' — the mock signs its own confirmations, so this hands out free passes. Production refuses to boot in this state."
-                : "Money changes hands offline: the student pays their instructor by cash, UPI or bank transfer and the instructor records it in Studio → Fees, which activates the pass. This is the intended pilot mode."
+                : "Money changes hands offline: the student pays their instructor by cash, UPI or bank transfer and the instructor records it in Studio → Earnings, which activates the pass. This is the intended pilot mode."
           }
         >
           <Row label="ONLINE_PAYMENTS=on" ok={env.onlinePayments} />

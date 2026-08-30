@@ -17,7 +17,7 @@ export async function register() {
   if (env.nodeEnv === "production" && !env.onlinePayments) {
     console.info(
       "[personalise] Online payments are OFF. Students pay their instructor directly; " +
-        "instructors activate passes from Studio → Fees.",
+        "instructors activate passes from Studio → Earnings.",
     );
   }
 }

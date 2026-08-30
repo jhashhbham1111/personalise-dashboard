@@ -98,7 +98,7 @@ export function SignupForm({
       <Field
         label="Phone"
         htmlFor="phone"
-        hint="optional — helps your instructor find you"
+        hint="optional"
         error={state.fields?.phone}
       >
         <Input

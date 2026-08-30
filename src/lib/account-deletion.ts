@@ -101,7 +101,7 @@ export async function instructorDeletionBlock(
   return (
     `${pluralize(students, "student")} still ${students === 1 ? "holds" : "hold"} an active pass with you, ` +
     "so this account can't be deleted yet. Hide your page in Studio → My profile so nobody new can enrol, " +
-    "then either let the current passes run out or void them in Studio → Fees — refunding anyone who's owed money. " +
+    "then either let the current passes run out or void them in Studio → Earnings — refunding anyone who's owed money. " +
     "Come back here once no active passes are left."
   );
 }

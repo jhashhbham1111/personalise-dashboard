@@ -9,8 +9,7 @@ const TABS = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/bookings", label: "Bookings" },
   { href: "/dashboard/passes", label: "My passes" },
-  { href: "/dashboard/payments", label: "Payments" },
-  { href: "/dashboard/notifications", label: "Notifications" },
+  { href: "/dashboard/payments", label: "Fees" },
 ];
 
 export default async function DashboardLayout({

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 
 import {
   bookings,
@@ -284,8 +284,30 @@ export async function saveOfferingAction(
     if (!existing) return fail("That class doesn't belong to you.");
 
     await db.update(offerings).set(values).where(eq(offerings.id, offeringId));
+
+    // classSessions.title is copied in from the offering at materialization
+    // time (see materializeSessions), so a rename otherwise never reaches
+    // sessions that already exist — the calendar and public listings keep
+    // showing the old name until each one passes. Only future, still-scheduled
+    // sessions are touched; a class that already happened keeps the name it
+    // ran under, which is the historical record.
+    if (existing.title !== title) {
+      await db
+        .update(classSessions)
+        .set({ title })
+        .where(
+          and(
+            eq(classSessions.offeringId, offeringId),
+            eq(classSessions.status, SessionStatus.SCHEDULED),
+            gt(classSessions.startsAt, new Date()),
+          ),
+        );
+    }
+
     revalidatePath("/studio/offerings");
     revalidatePath(`/studio/offerings/${offeringId}`);
+    revalidatePath("/studio/schedule");
+    revalidatePath("/classes");
     if (user.instructorSlug) revalidatePath(`/i/${user.instructorSlug}`);
     return ok("Class saved.");
   }
@@ -842,6 +864,12 @@ export async function recordOfflinePaymentAction(
     return fail("Enter the amount you were paid.", { amount: "Required." });
   }
 
+  // Instructors often log a week's cash in one sitting, so the date money
+  // actually changed hands rarely matches the moment it's typed in here.
+  // Blank means "today" — the same default the flow always had.
+  const paidAtRaw = str(form, "paidAt");
+  const paidAt = paidAtRaw ? fromDateInput(paidAtRaw, user.timezone) : new Date();
+
   let student: { id: string; name: string } | null = null;
   if (studentId) {
     const row = await db.query.users.findFirst({
@@ -885,6 +913,7 @@ export async function recordOfflinePaymentAction(
       sessionsIncluded: rawSessions ? Math.max(1, Number(rawSessions)) : null,
       validityDays: rawValidity ? Math.max(1, Number(rawValidity)) : null,
       note: str(form, "note") || undefined,
+      paidAt,
     });
     if (!result.ok) return fail(result.error);
 
@@ -911,6 +940,7 @@ export async function recordOfflinePaymentAction(
     planId,
     amountPaise: rupeesToPaise(amount),
     note: str(form, "note") || undefined,
+    paidAt,
   });
   if (!result.ok) return fail(result.error);
 
