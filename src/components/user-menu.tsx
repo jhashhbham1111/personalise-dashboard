@@ -3,12 +3,17 @@
 import Link from "next/link";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
+  BarChart3,
   CalendarDays,
   LayoutDashboard,
   LogOut,
+  MapPin,
+  Megaphone,
   Presentation,
   Settings,
   Shield,
+  UserCircle,
+  Video,
 } from "lucide-react";
 
 import { logoutAction } from "@/app/(auth)/actions";
@@ -44,6 +49,13 @@ export function UserMenu({
     { href: "/dashboard", label: "My classes", icon: LayoutDashboard, show: isStudent },
     { href: "/dashboard/bookings", label: "Bookings", icon: CalendarDays, show: isStudent },
     { href: "/studio", label: "My classes", icon: Presentation, show: isInstructorAccount },
+    // Set-up-once and occasional studio sections — moved here from a "More"
+    // tab so the weekly tab row isn't competing for space with them.
+    { href: "/studio/profile", label: "My profile", icon: UserCircle, show: isInstructorAccount },
+    { href: "/studio/venues", label: "Venues", icon: MapPin, show: isInstructorAccount },
+    { href: "/studio/media", label: "Videos", icon: Video, show: isInstructorAccount },
+    { href: "/studio/updates", label: "Updates", icon: Megaphone, show: isInstructorAccount },
+    { href: "/studio/analytics", label: "Analytics", icon: BarChart3, show: isInstructorAccount },
     { href: "/admin", label: "Admin", icon: Shield, show: user.role === "ADMIN" },
     { href: "/dashboard/settings", label: "Settings", icon: Settings, show: true },
   ].filter((i) => i.show);

@@ -199,14 +199,22 @@ try {
     primaryTabs === 6,
     `${primaryTabs} primary tabs`,
   );
-  await studio.getByRole("button", { name: /^more$/i }).click();
+  // The set-up-once sections moved out of a "More" tab and into the account
+  // menu behind the avatar, so the tab row is only the weekly six.
+  // Notifications is deliberately no longer listed anywhere in this menu — the
+  // header bell is the single way in.
+  await studio.getByRole("button", { name: /account menu/i }).click();
   await studio.waitForTimeout(400);
   const moreText = await studio.locator("body").innerText();
   check(
-    "the moved sections are all still reachable under More",
-    ["My profile", "Venues", "Videos", "Updates", "Notifications"].every((l) =>
+    "the moved sections are all still reachable from the account menu",
+    ["My profile", "Venues", "Videos", "Updates", "Analytics"].every((l) =>
       moreText.includes(l),
     ),
+  );
+  check(
+    "the header bell is still the way to notifications",
+    await studio.getByLabel(/notifications/i).first().isVisible(),
   );
   await studio.close();
 

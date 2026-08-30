@@ -247,6 +247,8 @@ export async function recordOfflinePayment(args: {
   planId: string;
   amountPaise: number;
   note?: string;
+  /** When the money actually changed hands, if not the moment this is recorded. */
+  paidAt?: Date;
 }): Promise<
   | { ok: true; paymentId: string; enrollmentId: string }
   | { ok: false; error: string }
@@ -331,7 +333,7 @@ export async function recordOfflinePayment(args: {
       method: "OFFLINE",
       provider: "offline",
       status: PaymentStatus.PAID,
-      paidAt: new Date(),
+      paidAt: args.paidAt ?? new Date(),
     })
     .returning();
 
@@ -466,6 +468,8 @@ export async function recordAdHocPayment(args: {
   sessionsIncluded: number | null;
   validityDays: number | null;
   note?: string;
+  /** When the money actually changed hands, if not the moment this is recorded. */
+  paidAt?: Date;
 }): Promise<
   | { ok: true; paymentId: string; enrollmentId: string }
   | { ok: false; error: string }
@@ -541,7 +545,7 @@ export async function recordAdHocPayment(args: {
       method: "OFFLINE",
       provider: "offline",
       status: PaymentStatus.PAID,
-      paidAt: new Date(),
+      paidAt: args.paidAt ?? new Date(),
     })
     .returning();
 

@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -12,82 +10,19 @@ type Tab = { href: string; label: string };
 /**
  * Studio navigation. Client-side only so the active tab can be derived from the
  * current path — the layout above it stays a server component.
- *
- * Split into a primary row and a "More" menu: everything an instructor touches
- * weekly is one click away, and the set-up-once sections stay reachable
- * without competing for the same space.
  */
-export function StudioTabs({ tabs, more = [] }: { tabs: Tab[]; more?: Tab[] }) {
+export function StudioTabs({ tabs }: { tabs: Tab[] }) {
   const pathname = usePathname();
 
   // "/studio" must not light up for every child route.
   const isActive = (href: string) =>
     href === "/studio" ? pathname === "/studio" : pathname.startsWith(href);
 
-  const activeMore = more.find((t) => isActive(t.href));
-
   return (
     <nav className="flex items-stretch gap-1 overflow-x-auto" aria-label="Studio sections">
       {tabs.map((t) => (
         <TabLink key={t.href} tab={t} active={isActive(t.href)} />
       ))}
-
-      {more.length > 0 ? (
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger
-            className={cn(
-              "flex items-center gap-1 whitespace-nowrap rounded-md border-b-2 px-3 py-3 text-sm font-medium transition-colors",
-              // rounded-md so *if* the focus-visible outline (globals.css)
-              // ever draws here — a real Tab-key user reaching this tab —
-              // it's a soft highlight rather than a sharp rectangle. It
-              // won't normally draw at all: see onCloseAutoFocus below.
-              activeMore
-                ? "border-brand-500 text-brand-700"
-                : "border-transparent text-ink-soft hover:border-brand-300 hover:text-brand-700",
-            )}
-          >
-            {activeMore ? activeMore.label : "More"}
-            <ChevronDown className="h-3.5 w-3.5" />
-          </DropdownMenu.Trigger>
-
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              align="start"
-              sideOffset={4}
-              className="z-50 min-w-44 rounded-lg border border-line bg-surface p-1 shadow-lg"
-              // Radix moves focus back onto the trigger whenever this menu
-              // closes — including the normal case of clicking one of the
-              // links below and navigating away. A *programmatic* focus()
-              // like that one is exactly what the browser's focus-visible
-              // heuristic treats as "show the ring", even though nothing
-              // resembling a keyboard interaction happened — which is what
-              // painted two stray vertical lines around this tab after a
-              // plain click. Every other tab is a bare <a>, which Radix
-              // never touches, so it never showed this. Since this menu is
-              // pure navigation (not actions to keep acting on), there's
-              // nothing to return focus *to* once it closes.
-              onCloseAutoFocus={(e) => e.preventDefault()}
-            >
-              {more.map((t) => (
-                <DropdownMenu.Item key={t.href} asChild>
-                  <Link
-                    href={t.href}
-                    aria-current={isActive(t.href) ? "page" : undefined}
-                    className={cn(
-                      "block cursor-pointer rounded-md px-3 py-2 text-sm outline-none transition-colors",
-                      isActive(t.href)
-                        ? "bg-brand-50 font-medium text-brand-700"
-                        : "text-ink-soft hover:bg-brand-50 hover:text-brand-700",
-                    )}
-                  >
-                    {t.label}
-                  </Link>
-                </DropdownMenu.Item>
-              ))}
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
-      ) : null}
     </nav>
   );
 }

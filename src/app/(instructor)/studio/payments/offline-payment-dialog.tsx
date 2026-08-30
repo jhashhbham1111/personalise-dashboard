@@ -161,6 +161,14 @@ export function OfflinePaymentDialog({
           />
         </Field>
 
+        <Field
+          label="Payment date"
+          htmlFor="paidAt"
+          hint="optional — defaults to today"
+        >
+          <Input id="paidAt" name="paidAt" type="date" />
+        </Field>
+
         <Field label="Note" htmlFor="note" hint="optional">
           <Input id="note" name="note" placeholder="Cash, paid at the studio" />
         </Field>
