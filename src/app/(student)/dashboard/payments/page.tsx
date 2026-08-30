@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState, PageHeader, StatTile } from "@/components/ui/page";
 
-export const metadata: Metadata = { title: "Payments" };
+export const metadata: Metadata = { title: "Fees" };
 
 const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "soft"> = {
   PAID: "success",
@@ -48,7 +48,7 @@ export default async function PaymentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Payments"
+        title="Fees"
         description="Every pass you've bought, with its invoice number."
       />
 

@@ -194,7 +194,7 @@ export default async function LandingPage() {
                   icon: IndianRupee,
                   title: capabilities.onlinePayments
                     ? "UPI-first payments"
-                    : "Fees, tracked",
+                    : "Earnings, tracked",
                   body: paymentCopy.feature,
                 },
                 {

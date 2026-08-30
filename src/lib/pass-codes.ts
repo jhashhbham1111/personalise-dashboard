@@ -265,7 +265,7 @@ export async function redeemPassCode(args: {
     .set({ enrollmentId })
     .where(eq(passCodes.id, row.id));
 
-  // The same ledger row a cash payment writes, so Fees stays complete.
+  // The same ledger row a cash payment writes, so Earnings stays complete.
   await db.insert(payments).values({
     studentId: args.studentId,
     instructorId: row.instructorId,

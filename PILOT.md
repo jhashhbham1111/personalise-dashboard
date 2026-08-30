@@ -14,7 +14,7 @@ instructor activates their pass in the app.
 
 ```
 Student signs up  →  pays the instructor directly (outside the app)
-                  →  instructor records it in Studio → Fees
+                  →  instructor records it in Studio → Earnings
                   →  pass activates, student books classes
                   →  reminders go out an hour before each class
 ```
@@ -292,7 +292,7 @@ For a payment the instructor wants to log themselves.
 1. Student creates an account at your site (send them the instructor's public
    page link — `/i/their-slug`).
 2. Student pays the instructor directly, however they normally do.
-3. Instructor opens **Studio → Fees → Record a payment**, searches for the
+3. Instructor opens **Studio → Earnings → Record a payment**, searches for the
    student by **name, email or phone**, picks them from the list, chooses the
    pass, confirms the amount, and saves.
 4. The pass activates immediately and the student can book.
@@ -326,7 +326,7 @@ Be upfront about these — pilot users forgive known limits and resent surprises
 | Live video is simulated | Instructor and student can't actually see each other in class | **Deferred for now** — run online classes on whatever you use today (Zoom/Meet/WhatsApp) and put the joining link on the class. LiveKit's free tier is the route back; see §2.7 |
 | No in-app messaging | Students can't ask questions before booking | Keep WhatsApp for conversation |
 | Reviews are display-only | Ratings stay at zero | Collect feedback out of band |
-| No refunds in-app | Instructor hands money back manually | Void the payment in Studio → Fees, then return the money directly |
+| No refunds in-app | Instructor hands money back manually | Void the payment in Studio → Earnings, then return the money directly |
 | No instructor double-booking check | `findConflictingSessions()` exists in `src/lib/scheduling.ts` but nothing calls it, so two overlapping classes can be scheduled | Instructors see their own week in Studio → Schedule; watch for it there |
 | Invoice numbers are random | GST requires sequential numbering | Fine while money is offline; must change before charging in-app |
 | Notifications are email only | Indian students often won't read email | Follow up on WhatsApp for anything time-critical |

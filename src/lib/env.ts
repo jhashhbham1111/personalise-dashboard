@@ -94,7 +94,7 @@ export const env = {
    *
    * Off by default. While it's off, students see the prices but pay their
    * instructor directly (cash, UPI, bank transfer) and the instructor records
-   * it in Studio → Fees, which activates the pass. That's the mode a pilot
+   * it in Studio → Earnings, which activates the pass. That's the mode a pilot
    * runs in before the payment gateway is live.
    *
    * This defaults to OFF deliberately: the mock payment provider signs its own
