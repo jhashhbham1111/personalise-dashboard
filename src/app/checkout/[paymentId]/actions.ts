@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 
 import { db, payments } from "@/db";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { fulfilPayment } from "@/lib/checkout";
 import { env } from "@/lib/env";
 import { getPaymentProvider } from "@/lib/payments";
@@ -28,8 +28,7 @@ export async function completeMockPaymentAction(
   // anyone who POSTs to it.
   if (!env.onlinePayments) return fail("Online payment isn't available.");
 
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireUser("/dashboard");
 
   const paymentId = str(form, "paymentId");
   const method = str(form, "method") || "UPI";
@@ -80,8 +79,7 @@ export async function confirmRazorpayAction(
 ): Promise<ActionState> {
   if (!env.onlinePayments) return fail("Online payment isn't available.");
 
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireUser("/dashboard");
 
   const paymentId = str(form, "paymentId");
   const razorpayPaymentId = str(form, "razorpayPaymentId");

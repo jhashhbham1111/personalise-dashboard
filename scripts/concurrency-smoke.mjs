@@ -13,6 +13,7 @@
 
 import "dotenv/config";
 import { createClient } from "@libsql/client";
+import { signUpAndVerify, testEmail } from "./lib/signup.mjs";
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
@@ -73,14 +74,14 @@ const browser = await chromium.launch({
 });
 
 async function makeStudent(i) {
-  const email = `race-${Date.now()}-${i}@example.com`;
+  const email = testEmail(`race-${i}`);
   const page = await browser.newPage();
-  await page.goto(`${BASE}/signup`, { waitUntil: "domcontentloaded" });
-  await page.fill('input[name="name"]', `Racer ${i}`);
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', PASSWORD);
-  await page.click('button[type="submit"]');
-  await page.waitForURL((u) => !u.pathname.startsWith("/signup"), { timeout: 20000 });
+  await signUpAndVerify(page, db, {
+    baseUrl: BASE,
+    name: `Racer ${i}`,
+    email,
+    password: PASSWORD,
+  });
 
   const { rows } = await db.execute({
     sql: "select id from users where email = ?",

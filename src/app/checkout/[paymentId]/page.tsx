@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { ShieldCheck } from "lucide-react";
 
 import { db, payments } from "@/db";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { formatMoney } from "@/lib/utils";
 import { Logo } from "@/components/logo";
@@ -24,8 +24,7 @@ export default async function CheckoutPage({
   // payment row from before the switch is unreachable rather than half-usable.
   if (!env.onlinePayments) notFound();
 
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireUser(`/checkout/${paymentId}`);
 
   const payment = await db.query.payments.findFirst({
     where: eq(payments.id, paymentId),

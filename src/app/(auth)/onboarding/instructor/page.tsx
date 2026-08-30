@@ -1,14 +1,13 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { OnboardingForm } from "./onboarding-form";
 
 export const metadata: Metadata = { title: "Set up your teaching profile" };
 
 export default async function InstructorOnboardingPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/onboarding/instructor");
+  const user = await requireUser("/onboarding/instructor");
   if (user.instructorProfileId) redirect("/studio");
 
   return (

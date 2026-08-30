@@ -11,10 +11,14 @@
 
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { createClient } from "@libsql/client";
+import { testEmail, verificationCodeFor } from "./lib/signup.mjs";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const SHOTS = "screenshots";
 mkdirSync(SHOTS, { recursive: true });
+
+const db = createClient({ url: process.env.DATABASE_URL || "file:./dev.db" });
 
 const results = [];
 function check(name, passed, detail = "") {
@@ -81,15 +85,25 @@ try {
   check("recordings are visibly gated when signed out", gatedLocked >= 0);
 
   /* ------------------------------------------------------------- sign up */
-  const email = `smoke-${Date.now()}@example.com`;
+  const email = testEmail("smoke");
   await page.goto(`${BASE}/signup`, { waitUntil: "domcontentloaded" });
   await shot("06-signup");
   await page.fill('input[name="name"]', "Smoke Tester");
   await page.fill('input[name="email"]', email);
   await page.fill('input[name="password"]', "password123");
   await page.click('button[type="submit"]');
+
+  // The account exists but is blocked until the emailed code is entered.
+  await page.waitForURL("**/verify-email**", { timeout: 20000 });
+  check("signup lands on the email verification screen", true);
+  await shot("06b-verify-email");
+
+  const code = await verificationCodeFor(db, email);
+  check("a verification code was issued", code !== null);
+  await page.fill('input[name="code"]', code);
+  await page.click('button[type="submit"]');
   await page.waitForURL("**/dashboard**", { timeout: 20000 });
-  check("signup creates an account and lands on the dashboard", true);
+  check("entering the code completes signup and lands on the dashboard", true);
   await shot("07-dashboard-empty");
 
   /* -------------------------------------------------------------- enrol */
@@ -370,8 +384,12 @@ try {
   /* -- post an update --------------------------------------------------- */
   const updateTitle = `Smoke update ${Date.now()}`;
   await page.goto(`${BASE}/studio/updates`, { waitUntil: "domcontentloaded" });
+  // domcontentloaded returns before React has hydrated the composer, so the
+  // textarea exists in the DOM but isn't yet editable — fill() then waits out
+  // its full timeout on an element that is right there on screen. Waiting for
+  // the actual state instead of guessing a duration is what makes this stable.
+  await page.waitForLoadState("networkidle");
   await page.fill('input[name="title"]', updateTitle);
-  await page.waitForTimeout(300);
   await page.fill('textarea[name="body"]', "Posted by the automated smoke test to prove the composer works.");
   await page.getByRole("button", { name: /post update/i }).click();
   await page.waitForTimeout(2500);
@@ -425,6 +443,7 @@ try {
   await page.screenshot({ path: `${SHOTS}/error.png`, fullPage: true }).catch(() => {});
 } finally {
   await browser.close();
+  db.close();
 }
 
 const failed = results.filter((r) => !r.passed);

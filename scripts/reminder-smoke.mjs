@@ -157,7 +157,14 @@ try {
     timeout: 10000,
   });
   check("student bell opens /dashboard/notifications", true);
-  await studentPage.waitForTimeout(400);
+  // The list renders after hydration; a fixed pause races a cold compile of
+  // this route, which is why this check flickered rather than failed honestly.
+  await studentPage.waitForLoadState("networkidle");
+  await studentPage
+    .getByText(title, { exact: false })
+    .first()
+    .waitFor({ state: "visible", timeout: 15000 })
+    .catch(() => {});
   check(
     "reminder visible on student notifications page",
     await studentPage.getByText(title, { exact: false }).first().isVisible(),

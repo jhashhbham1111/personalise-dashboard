@@ -77,6 +77,8 @@ export type CurrentUser = {
   role: Role;
   avatarUrl: string | null;
   timezone: string;
+  /** Null until they've entered the code emailed to that address. */
+  emailVerifiedAt: Date | null;
   instructorProfileId: string | null;
   instructorSlug: string | null;
 };
@@ -97,6 +99,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       role: users.role,
       avatarUrl: users.avatarUrl,
       timezone: users.timezone,
+      emailVerifiedAt: users.emailVerifiedAt,
       deletedAt: users.deletedAt,
       profileId: instructorProfiles.id,
       profileSlug: instructorProfiles.slug,
@@ -122,16 +125,38 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     role: row.role as Role,
     avatarUrl: row.avatarUrl,
     timezone: row.timezone,
+    emailVerifiedAt: row.emailVerifiedAt,
     instructorProfileId: row.profileId ?? null,
     instructorSlug: row.profileSlug ?? null,
   };
 });
 
+/**
+ * A signed-in user with a proven email address.
+ *
+ * The verification check lives here rather than in middleware on purpose: this
+ * is the one function every guarded page and every server action already calls
+ * to get the current user, so a new page can't forget to opt in. An unverified
+ * account holds a session and reaches exactly one screen.
+ */
 export async function requireUser(returnTo?: string): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) {
     redirect(`/login${returnTo ? `?next=${encodeURIComponent(returnTo)}` : ""}`);
   }
+  if (!user.emailVerifiedAt) redirect("/verify-email");
+  return user;
+}
+
+/**
+ * The signed-in user, verified or not.
+ *
+ * Only for the verification screen itself, which by definition has to render
+ * for someone requireUser would bounce. Everything else uses requireUser.
+ */
+export async function requireUserPendingVerification(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
   return user;
 }
 

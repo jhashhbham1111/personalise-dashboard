@@ -23,6 +23,15 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Sign in to join this class." }, { status: 401 });
   }
+  // A route handler can't redirect a fetch to the verification screen, so it
+  // refuses outright — the pages that would call it are already unreachable
+  // to an unverified account, and this closes the direct-POST path.
+  if (!user.emailVerifiedAt) {
+    return NextResponse.json(
+      { error: "Confirm your email address first." },
+      { status: 403 },
+    );
+  }
 
   let body: { sessionId?: string };
   try {

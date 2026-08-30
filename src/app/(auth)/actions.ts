@@ -17,11 +17,11 @@ import {
   completePasswordReset,
   requestPasswordReset,
 } from "@/lib/password-reset";
+import { checkSignupEmail, looksLikeEmail } from "@/lib/email-address";
+import { issueVerificationCode, verifyEmailCode } from "@/lib/email-verification";
 import { clamp, fail, ok, str, type ActionState } from "@/lib/actions";
 import { clearRateLimit, clientIp, rateLimit } from "@/lib/rate-limit";
 import { canonicalCity, slugify, tidyPersonName } from "@/lib/utils";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Only ever redirect somewhere inside this app.
@@ -93,6 +93,29 @@ export async function loginAction(
     role: user.role as Role,
   });
 
+  // An account that never finished verifying can still sign in — it just lands
+  // on the code screen rather than the dashboard. Refusing the login instead
+  // would strand someone who closed the tab mid-signup with no way back in and
+  // no way to ask for a new code.
+  if (!user.emailVerifiedAt) {
+    // Throttled, and silently: signing in repeatedly shouldn't be a way to
+    // have us mail someone a code every few seconds. If the gate is closed
+    // the screen still loads, with its own "send a new code" button.
+    const gate = await rateLimit({
+      key: `verify:send:${user.id}`,
+      limit: 5,
+      windowSeconds: 900,
+    });
+    if (gate.ok) {
+      await issueVerificationCode({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      });
+    }
+    redirect("/verify-email");
+  }
+
   redirect(safeNext(next, homePathForRole(user.role as Role)));
 }
 
@@ -105,24 +128,28 @@ export async function signupAction(
   // the capitals its owner chose. This name is shown to instructors on their
   // register and to other students in class.
   const name = tidyPersonName(str(form, "name"));
-  const email = str(form, "email").toLowerCase();
   const password = str(form, "password");
   const intent = str(form, "intent"); // "learn" | "teach"
   // Optional, but the thing an instructor actually knows about a student who
   // just handed them cash — it makes them findable without an exact email.
   const phone = normalisePhone(str(form, "phone"));
 
+  // Rejects reserved domains, throwaway inboxes and the common typos, and
+  // returns the lowercased form so casing can't produce two accounts for one
+  // person. The address is still only *proven* by the code sent below.
+  const emailCheck = checkSignupEmail(str(form, "email"));
+  const email = emailCheck.ok ? emailCheck.email : "";
+
   const fields: Record<string, string> = {};
   if (name.length < 2) fields.name = "Tell us your name.";
-  if (!EMAIL_RE.test(email)) fields.email = "That doesn't look like an email address.";
+  if (!emailCheck.ok) fields.email = emailCheck.error;
   if (password.length < 8) fields.password = "Use at least 8 characters.";
   if (phone && phone.replace(/\D/g, "").length < 7)
     fields.phone = "That doesn't look like a phone number.";
   if (Object.keys(fields).length) return fail("Check the highlighted fields.", fields);
 
   // Signup answers "does this email have an account?" truthfully, which makes
-  // it an enumeration oracle. Can't fix that without an email-verification
-  // flow, so at least cap how fast one address can ask.
+  // it an enumeration oracle — capped here so it can't be walked at speed.
   const signupGate = await rateLimit({
     key: `signup:ip:${clientIp(await headers())}`,
     limit: 10,
@@ -152,9 +179,149 @@ export async function signupAction(
     })
     .returning();
 
+  // A session, but a session that can't reach anything yet — requireUser sends
+  // an unverified account to /verify-email from every guarded page. It exists
+  // so the code screen knows who is answering without asking them to log in
+  // first, and so the intent they picked survives the round trip.
   await createSession({ userId: user.id, email: user.email, role });
 
-  redirect(role === Role.INSTRUCTOR ? "/onboarding/instructor" : "/dashboard");
+  await issueVerificationCode({ id: user.id, email: user.email, name });
+
+  redirect("/verify-email");
+}
+
+/* ----------------------------------------------------- email verification */
+
+export async function verifyEmailAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  const { getCurrentUser } = await import("@/lib/auth");
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.emailVerifiedAt) redirect(homePathForRole(user.role));
+
+  // Per-account rather than per-IP: the thing being protected is one code, and
+  // the attacker who matters is the one grinding six digits against it. The
+  // code's own attempt counter burns it after five wrong guesses; this stops
+  // someone cycling resend-then-guess fast enough to make that irrelevant.
+  const gate = await rateLimit({
+    key: `verify:check:${user.id}`,
+    limit: 20,
+    windowSeconds: 900,
+  });
+  if (!gate.ok) {
+    return fail(
+      `Too many attempts. Try again in ${Math.ceil(gate.retryAfterSeconds / 60)} minute(s).`,
+    );
+  }
+
+  const result = await verifyEmailCode({
+    userId: user.id,
+    code: str(form, "code"),
+  });
+  if (!result.ok) return fail(result.error, { code: result.error });
+
+  await clearRateLimit(`verify:check:${user.id}`);
+
+  redirect(
+    user.role === Role.INSTRUCTOR && !user.instructorProfileId
+      ? "/onboarding/instructor"
+      : homePathForRole(user.role),
+  );
+}
+
+/** Takes no arguments — useActionState supplies two, and neither is needed. */
+export async function resendVerificationAction(): Promise<ActionState> {
+  const { getCurrentUser } = await import("@/lib/auth");
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.emailVerifiedAt) redirect(homePathForRole(user.role));
+
+  const gate = await rateLimit({
+    key: `verify:send:${user.id}`,
+    limit: 5,
+    windowSeconds: 900,
+  });
+  if (!gate.ok) {
+    return fail(
+      `You've asked for a few codes already. Try again in ${Math.ceil(gate.retryAfterSeconds / 60)} minute(s), and check your spam folder in the meantime.`,
+    );
+  }
+
+  await issueVerificationCode({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+  });
+
+  return ok(`A new code is on its way to ${user.email}.`);
+}
+
+/**
+ * Correct the address on an account that hasn't been verified yet.
+ *
+ * Without this, one mistyped character at signup is a dead end: the code goes
+ * somewhere unreachable, every page redirects to a screen asking for it, and
+ * password reset — the usual escape hatch — mails the same wrong address. The
+ * account holds nothing yet, so letting its owner fix the typo costs nothing;
+ * a *verified* address is a different matter and isn't changed here.
+ */
+export async function changeSignupEmailAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  const { getCurrentUser } = await import("@/lib/auth");
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.emailVerifiedAt) redirect(homePathForRole(user.role));
+
+  const check = checkSignupEmail(str(form, "email"));
+  if (!check.ok) return fail(check.error, { email: check.error });
+  if (check.email === user.email) {
+    return fail("That's the address we already sent the code to.", {
+      email: "Enter a different address.",
+    });
+  }
+
+  const gate = await rateLimit({
+    key: `verify:change:${user.id}`,
+    limit: 5,
+    windowSeconds: 3600,
+  });
+  if (!gate.ok) {
+    return fail("You've changed this a few times already. Try again in an hour.");
+  }
+
+  const taken = await db.query.users.findFirst({
+    where: eq(users.email, check.email),
+  });
+  if (taken) {
+    return fail("An account with that email already exists.", {
+      email: "Already registered — sign in with it instead.",
+    });
+  }
+
+  await db
+    .update(users)
+    .set({ email: check.email })
+    .where(eq(users.id, user.id));
+
+  // The session carries the address, so it has to be reissued or the rest of
+  // the app keeps showing the old one until the cookie expires.
+  await createSession({
+    userId: user.id,
+    email: check.email,
+    role: user.role,
+  });
+
+  await issueVerificationCode({
+    id: user.id,
+    email: check.email,
+    name: user.name,
+  });
+
+  return ok(`Address updated. A new code is on its way to ${check.email}.`);
 }
 
 export async function logoutAction() {
@@ -169,7 +336,7 @@ export async function requestPasswordResetAction(
   form: FormData,
 ): Promise<ActionState> {
   const email = str(form, "email");
-  if (!EMAIL_RE.test(email)) {
+  if (!looksLikeEmail(email)) {
     return fail("Enter the email address on your account.", {
       email: "That doesn't look like an email address.",
     });

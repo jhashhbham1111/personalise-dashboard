@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useEffect } from "react";
+import { useActionState, useState } from "react";
 import { Star } from "lucide-react";
 
 import { submitReviewAction } from "./actions";
@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/input";
 import { FormMessage } from "@/components/ui/form-message";
-import { Modal, ModalClose } from "@/components/ui/modal";
+import { Modal, ModalClose, useCloseOnSuccess } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 export function ReviewDialog({
@@ -26,10 +26,11 @@ export function ReviewDialog({
   const [hovered, setHovered] = useState(0);
   const [rating, setRating] = useState(existingRating ?? 0);
 
-  // Close modal on successful submission
-  useEffect(() => {
-    if (state.success) setOpen(false);
-  }, [state.success]);
+  // The shared hook every other dialog uses. The hand-rolled effect it
+  // replaces re-fired on each render while a success state was live, which
+  // React 19's lint rule flags as cascading renders — and which stopped the
+  // dialog reopening cleanly for a second edit.
+  useCloseOnSuccess(state, setOpen);
 
   const isEdit = Boolean(existingRating);
 

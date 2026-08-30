@@ -53,6 +53,17 @@ export const users = sqliteTable(
     avatarUrl: text("avatar_url"),
     timezone: text("timezone").notNull().default("Asia/Kolkata"),
     /**
+     * Set the moment someone proves they can read mail at the address they
+     * signed up with.
+     *
+     * Null means the account exists but nothing about it is trusted yet — it
+     * can hold a session, and nothing else (see requireUser). Signup used to
+     * accept any string with an @ in it, which meant a typo'd address locked
+     * someone out of their own password reset, and a deliberately fake one
+     * gave an instructor a student they could never contact.
+     */
+    emailVerifiedAt: integer("email_verified_at", { mode: "timestamp_ms" }),
+    /**
      * Set when the person asked us to delete their account.
      *
      * The row survives the request because bookings, enrolments and payments
@@ -597,6 +608,35 @@ export const passwordResetTokens = sqliteTable(
   (t) => [index("reset_user_idx").on(t.userId)],
 );
 
+/**
+ * One-time codes proving control of an email address.
+ *
+ * Same shape as password_reset_tokens and for the same reason: only the digest
+ * of the code is stored, so a leaked database hands an attacker nothing they
+ * can type into the form.
+ *
+ * `attempts` is what makes a 6-digit code safe. A million combinations is not
+ * many if you can try them all, so the row is burned after a handful of wrong
+ * guesses and a fresh code has to be requested — which is itself rate limited.
+ */
+export const emailVerificationCodes = sqliteTable(
+  "email_verification_codes",
+  {
+    id: id(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** The address the code was sent to — a later email change invalidates it. */
+    email: text("email").notNull(),
+    codeHash: text("code_hash").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("email_verification_user_idx").on(t.userId)],
+);
+
 export const notifications = sqliteTable(
   "notifications",
   {
@@ -872,6 +912,16 @@ export const passwordResetTokensRelations = relations(
   ({ one }) => ({
     user: one(users, {
       fields: [passwordResetTokens.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const emailVerificationCodesRelations = relations(
+  emailVerificationCodes,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [emailVerificationCodes.userId],
       references: [users.id],
     }),
   }),

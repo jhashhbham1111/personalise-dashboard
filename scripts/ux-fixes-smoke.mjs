@@ -11,6 +11,7 @@
 
 import "dotenv/config";
 import { createClient } from "@libsql/client";
+import { signUpAndVerify, testEmail } from "./lib/signup.mjs";
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
@@ -242,14 +243,14 @@ try {
   await signedOut.close();
 
   // A signed-in student with no pass for a class should be pointed at prices.
-  const noPassEmail = `ux-${Date.now()}@example.com`;
+  const noPassEmail = testEmail("ux");
   const student = await browser.newPage({ viewport: DESKTOP });
-  await student.goto(`${BASE}/signup`, { waitUntil: "domcontentloaded" });
-  await student.fill('input[name="name"]', "ux tester");
-  await student.fill('input[name="email"]', noPassEmail);
-  await student.fill('input[name="password"]', "uxpass12345");
-  await student.click('button[type="submit"]');
-  await student.waitForURL((u) => !u.pathname.startsWith("/signup"), { timeout: 20000 });
+  await signUpAndVerify(student, db, {
+    baseUrl: BASE,
+    name: "ux tester",
+    email: noPassEmail,
+    password: "uxpass12345",
+  });
 
   await student.goto(`${BASE}/classes?within=all`, { waitUntil: "domcontentloaded" });
   const passesCta = await student.getByRole("link", { name: /see passes/i }).count();

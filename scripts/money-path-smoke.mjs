@@ -10,6 +10,7 @@
 
 import "dotenv/config";
 import { createClient } from "@libsql/client";
+import { signUpAndVerify, testEmail } from "./lib/signup.mjs";
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
@@ -211,14 +212,14 @@ try {
   await studio.close();
 
   /* ----------------- 7. a spent pass doesn't get offered a Book button */
-  const studentEmail = `money-${Date.now()}@example.com`;
+  const studentEmail = testEmail("money");
   const student = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-  await student.goto(`${BASE}/signup`, { waitUntil: "domcontentloaded" });
-  await student.fill('input[name="name"]', "Money Tester");
-  await student.fill('input[name="email"]', studentEmail);
-  await student.fill('input[name="password"]', "moneypass123");
-  await student.click('button[type="submit"]');
-  await student.waitForURL((u) => !u.pathname.startsWith("/signup"), { timeout: 20000 });
+  await signUpAndVerify(student, db, {
+    baseUrl: BASE,
+    name: "Money Tester",
+    email: studentEmail,
+    password: "moneypass123",
+  });
 
   const { rows: studentRow } = await db.execute({
     sql: "select id from users where email = ?",

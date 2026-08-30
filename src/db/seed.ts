@@ -98,6 +98,10 @@ async function main() {
       email: "admin@personalise.app",
       name: "Platform Admin",
       passwordHash,
+      // Seeded accounts skip the code step — nobody is reading mail at
+      // @personalise.app, and a demo login that dead-ends on a verification
+      // screen is a broken demo.
+      emailVerifiedAt: now,
       role: "ADMIN",
       timezone: TZ,
     })
@@ -109,6 +113,7 @@ async function main() {
       email: "ananya@personalise.app",
       name: "Ananya Iyer",
       passwordHash,
+      emailVerifiedAt: now,
       role: "INSTRUCTOR",
       timezone: TZ,
       phone: "+91 98765 43210",
@@ -153,6 +158,7 @@ async function main() {
       email: "student@personalise.app",
       name: "Meera Krishnan",
       passwordHash,
+      emailVerifiedAt: now,
       role: "STUDENT",
       timezone: TZ,
     })

@@ -9,6 +9,7 @@
  *   node scripts/security-smoke.mjs
  */
 import { createClient } from "@libsql/client";
+import { signUpAndVerify, testEmail } from "./lib/signup.mjs";
 import { chromium } from "playwright";
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const db = createClient({
@@ -27,13 +28,13 @@ const { rows: victim } = await db.execute(
    and b.status='CONFIRMED' limit 1`);
 
 const atk = await browser.newPage();
-const atkEmail = `attacker-${Date.now()}@example.com`;
-await atk.goto(`${BASE}/signup`, { waitUntil: "domcontentloaded" });
-await atk.fill('input[name="name"]', "Attacker");
-await atk.fill('input[name="email"]', atkEmail);
-await atk.fill('input[name="password"]', "attacker123");
-await atk.click('button[type="submit"]');
-await atk.waitForURL(u => !u.pathname.startsWith("/signup"), { timeout: 20000 });
+const atkEmail = testEmail("attacker");
+await signUpAndVerify(atk, db, {
+  baseUrl: BASE,
+  name: "Attacker",
+  email: atkEmail,
+  password: "attacker123",
+});
 
 // Post directly to the server action the cancel button uses.
 const res = await atk.evaluate(async (bid) => {

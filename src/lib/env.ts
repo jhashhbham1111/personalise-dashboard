@@ -182,6 +182,18 @@ export function assertProviderConfig() {
     // internet, including the one that sends email.
     if (!env.cronSecret) problems.push("CRON_SECRET (required in production)");
 
+    // Signup now ends at a code that arrives by email, so the console
+    // provider in production isn't "quieter notifications" — it is nobody
+    // being able to finish creating an account, with the code printed to a
+    // log only the operator can read. Better to refuse to boot than to
+    // deploy a signup form that silently cannot complete.
+    if (env.notifyProvider !== "resend") {
+      problems.push(
+        "NOTIFY_PROVIDER (must be 'resend' in production — email verification " +
+          "codes cannot reach anyone through the console provider)",
+      );
+    }
+
     // The mock provider signs its own payment confirmations, so leaving it on
     // in production hands out genuine free passes.
     if (env.onlinePayments && env.paymentProvider === "mock") {

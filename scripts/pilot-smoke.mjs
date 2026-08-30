@@ -12,6 +12,7 @@
 
 import "dotenv/config";
 import { createClient } from "@libsql/client";
+import { testEmail, verificationCodeFor } from "./lib/signup.mjs";
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
@@ -40,7 +41,7 @@ async function login(page, email, password = "password123") {
 
 try {
   /* ------------------------------------------- a brand-new student signs up */
-  const studentEmail = `pilot-${Date.now()}@example.com`;
+  const studentEmail = testEmail("pilot");
   const student = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await student.goto(`${BASE}/signup`, { waitUntil: "domcontentloaded" });
   await student.fill('input[name="name"]', "Pilot Student");
@@ -48,7 +49,18 @@ try {
   await student.fill('input[name="password"]', "pilotpass123");
   await student.click('button[type="submit"]');
   await student.waitForURL((u) => !u.pathname.startsWith("/signup"), { timeout: 20000 });
-  check("new student can sign up", true, studentEmail);
+
+  // Signup stops at the emailed code now, so the pilot student has to clear
+  // that gate before any of the money flow below is even reachable.
+  await student.waitForURL("**/verify-email**", { timeout: 20000 });
+  const code = await verificationCodeFor(db, studentEmail);
+  check("signup issues a verification code", code !== null, studentEmail);
+  await student.fill('input[name="code"]', code);
+  await student.click('button[type="submit"]');
+  await student.waitForURL((u) => !u.pathname.startsWith("/verify-email"), {
+    timeout: 20000,
+  });
+  check("new student can sign up and confirm their email", true, studentEmail);
 
   const { rows: enrolBefore } = await db.execute({
     sql: `select count(*) as n from enrollments e

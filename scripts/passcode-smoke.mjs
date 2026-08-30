@@ -11,6 +11,7 @@
 
 import "dotenv/config";
 import { createClient } from "@libsql/client";
+import { signUpAndVerify, testEmail } from "./lib/signup.mjs";
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
@@ -43,14 +44,9 @@ async function login(page, email, password = "password123") {
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20000 });
 }
 
+/** Signup now ends at an emailed code; the shared helper clears that gate. */
 async function signup(page, { name, email, password, phone }) {
-  await page.goto(`${BASE}/signup`, { waitUntil: "domcontentloaded" });
-  await page.fill('input[name="name"]', name);
-  await page.fill('input[name="email"]', email);
-  if (phone) await page.fill('input[name="phone"]', phone);
-  await page.fill('input[name="password"]', password);
-  await page.click('button[type="submit"]');
-  await page.waitForURL((u) => !u.pathname.startsWith("/signup"), { timeout: 20000 });
+  await signUpAndVerify(page, db, { baseUrl: BASE, name, email, password, phone });
 }
 
 try {
@@ -80,7 +76,7 @@ try {
   );
 
   /* ------------------------------------ a student redeems one of the codes */
-  const studentEmail = `code-${Date.now()}@example.com`;
+  const studentEmail = testEmail("code");
   const student = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await signup(student, {
     name: "Code Student",
@@ -91,10 +87,16 @@ try {
 
   const code = made[0].code;
   await student.goto(`${BASE}/dashboard/redeem`, { waitUntil: "domcontentloaded" });
+  // The lookup is debounced and only fires once the input is hydrated, so a
+  // fixed pause races it on a cold page compile.
+  await student.waitForLoadState("networkidle");
   await student.fill("#code-input", code);
   // The preview resolves before the button unlocks, which is the point: the
-  // student sees what they're activating before it's spent.
-  await student.waitForTimeout(2500);
+  // student sees what they're activating before it's spent. Waiting for the
+  // button to appear is waiting for exactly that.
+  await student
+    .getByRole("button", { name: /activate this pass/i })
+    .waitFor({ state: "visible", timeout: 20000 });
 
   const previewText = (await student.locator("body").innerText()).toLowerCase();
   check(
@@ -130,7 +132,7 @@ try {
   );
 
   /* ------------------------------------------ the same code can't be reused */
-  const secondEmail = `code2-${Date.now()}@example.com`;
+  const secondEmail = testEmail("code2");
   const second = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await signup(second, {
     name: "Second Student",
@@ -138,8 +140,15 @@ try {
     password: "codepass123",
   });
   await second.goto(`${BASE}/dashboard/redeem`, { waitUntil: "domcontentloaded" });
+  // The preview is debounced and only runs once the input is hydrated, so a
+  // fixed pause races it — wait for the verdict itself to appear.
+  await second.waitForLoadState("networkidle");
   await second.fill("#code-input", code);
-  await second.waitForTimeout(2500);
+  await second
+    .getByText(/already been used/i)
+    .first()
+    .waitFor({ state: "visible", timeout: 15000 })
+    .catch(() => {});
   const reuseText = (await second.locator("body").innerText()).toLowerCase();
   check(
     "a used code is refused rather than granting a second pass",
@@ -172,15 +181,20 @@ try {
 
   if (revoked.length === 1) {
     const third = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    const thirdEmail = `code3-${Date.now()}@example.com`;
+    const thirdEmail = testEmail("code3");
     await signup(third, {
       name: "Third Student",
       email: thirdEmail,
       password: "codepass123",
     });
     await third.goto(`${BASE}/dashboard/redeem`, { waitUntil: "domcontentloaded" });
+    await third.waitForLoadState("networkidle");
     await third.fill("#code-input", revoked[0].code);
-    await third.waitForTimeout(2500);
+    await third
+      .getByText(/no longer valid/i)
+      .first()
+      .waitFor({ state: "visible", timeout: 15000 })
+      .catch(() => {});
     const revokedText = (await third.locator("body").innerText()).toLowerCase();
     check(
       "a revoked code can't be redeemed",
@@ -201,8 +215,9 @@ try {
   });
 
   await instructor.goto(`${BASE}/studio/payments`, { waitUntil: "domcontentloaded" });
+  await instructor.waitForLoadState("networkidle");
   await instructor.getByRole("button", { name: /record a payment/i }).first().click();
-  await instructor.waitForTimeout(500);
+  await instructor.locator("#student-search").waitFor({ state: "visible", timeout: 15000 });
   await instructor.fill("#student-search", studentEmail);
   const option = instructor.locator('ul[role="listbox"] [role="option"]').first();
   await option.waitFor({ timeout: 15000 });
@@ -222,8 +237,9 @@ try {
 
   /* -------------------------------- the picker finds a student by phone too */
   await instructor.goto(`${BASE}/studio/payments`, { waitUntil: "domcontentloaded" });
+  await instructor.waitForLoadState("networkidle");
   await instructor.getByRole("button", { name: /record a payment/i }).first().click();
-  await instructor.waitForTimeout(400);
+  await instructor.locator("#student-search").waitFor({ state: "visible", timeout: 15000 });
   await instructor.fill("#student-search", "9876543210");
   await instructor.waitForTimeout(1500);
   // Scoped to the picker's own listbox: a bare role=option also matches the
