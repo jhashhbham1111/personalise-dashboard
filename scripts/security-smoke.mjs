@@ -9,7 +9,9 @@
  *   node scripts/security-smoke.mjs
  */
 import { createClient } from "@libsql/client";
-import { signUpAndVerify, testEmail } from "./lib/signup.mjs";
+import { signUpAndVerify, testEmail,
+  skipFirstRunScreensEverywhere,
+} from "./lib/signup.mjs";
 import { chromium } from "playwright";
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const db = createClient({
@@ -20,6 +22,9 @@ const out = [];
 const check = (n, p, d="") => { out.push([n,p]); console.log(`${p?"  PASS":"  FAIL"}  ${n}${d?` — ${d}`:""}`); };
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
+// The launch screen and first-run intro are full-screen overlays for a
+// first-time visitor; without this they silently swallow the suite's clicks.
+skipFirstRunScreensEverywhere(browser);
 
 // --- IDOR: a signed-in stranger tries to cancel someone else's booking
 const { rows: victim } = await db.execute(

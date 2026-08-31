@@ -11,6 +11,7 @@
 
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { skipFirstRunScreensEverywhere } from "./lib/signup.mjs";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const SHOTS = "screenshots/admin";
@@ -25,6 +26,9 @@ function check(name, passed, detail = "") {
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
 });
+// The launch screen and first-run intro are full-screen overlays for a
+// first-time visitor; without this they silently swallow the suite's clicks.
+skipFirstRunScreensEverywhere(browser);
 
 async function login(page, email) {
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });

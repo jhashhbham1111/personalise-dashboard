@@ -18,6 +18,7 @@ import {
   requestPasswordReset,
 } from "@/lib/password-reset";
 import { checkSignupEmail, looksLikeEmail } from "@/lib/email-address";
+import { normalisePhone, validateSignup } from "@/lib/signup-validation";
 import { issueVerificationCode, verifyEmailCode } from "@/lib/email-verification";
 import { clamp, fail, ok, str, type ActionState } from "@/lib/actions";
 import { clearRateLimit, clientIp, rateLimit } from "@/lib/rate-limit";
@@ -35,15 +36,6 @@ import { canonicalCity, slugify, tidyPersonName } from "@/lib/utils";
 function safeNext(next: string, fallback: string): string {
   if (!next.startsWith("/") || next.startsWith("//")) return fallback;
   return next;
-}
-
-/** Keeps digits and a leading +, so "+91 98765 43210" and "09876543210" match. */
-function normalisePhone(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return "";
-  const plus = trimmed.startsWith("+");
-  const digits = trimmed.replace(/\D/g, "");
-  return digits ? `${plus ? "+" : ""}${digits}` : "";
 }
 
 export async function loginAction(
@@ -140,12 +132,16 @@ export async function signupAction(
   const emailCheck = checkSignupEmail(str(form, "email"));
   const email = emailCheck.ok ? emailCheck.email : "";
 
-  const fields: Record<string, string> = {};
-  if (name.length < 2) fields.name = "Tell us your name.";
-  if (!emailCheck.ok) fields.email = emailCheck.error;
-  if (password.length < 8) fields.password = "Use at least 8 characters.";
-  if (phone && phone.replace(/\D/g, "").length < 7)
-    fields.phone = "That doesn't look like a phone number.";
+  // The same rules the form runs as you type — see src/lib/signup-validation.ts,
+  // whose email rule calls checkSignupEmail above rather than restating a
+  // weaker one. This remains the check that decides: the client half can be
+  // skipped entirely by posting straight to the action.
+  const fields = validateSignup({
+    name,
+    email: str(form, "email"),
+    password,
+    phone,
+  });
   if (Object.keys(fields).length) return fail("Check the highlighted fields.", fields);
 
   // Signup answers "does this email have an account?" truthfully, which makes

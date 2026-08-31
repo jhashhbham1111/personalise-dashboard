@@ -96,7 +96,29 @@ async function signup(page, { name, email, password = "password123" }) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: /start learning/i }).click();
-  await page.waitForLoadState("networkidle");
+
+  /*
+   * Wait for the outcome, not for the network to go quiet.
+   *
+   * "networkidle" only means nothing is in flight *right now*, which on this
+   * form can be true before the action has finished — the account and its code
+   * are then written a moment after the test has already looked for them, and
+   * the failure reads as "no code was issued" for a signup that worked
+   * perfectly. Whichever of the two real outcomes arrives first ends the wait:
+   * the code screen for an accepted address, an inline error for a refused one.
+   */
+  await Promise.race([
+    page
+      .waitForURL((u) => !u.pathname.startsWith("/signup"), { timeout: 20000 })
+      .catch(() => {}),
+    page
+      .getByText(
+        /check the highlighted fields|already registered|real email address|temporary inboxes|did you mean|doesn't look like/i,
+      )
+      .first()
+      .waitFor({ state: "visible", timeout: 20000 })
+      .catch(() => {}),
+  ]);
 }
 
 const stamp = Date.now();
@@ -250,6 +272,10 @@ try {
     const p = await browser.newPage();
     await signup(p, { name: "Smoke UX", email: UX });
 
+    // The countdown is client state, so read the page only once the code box
+    // is actually interactive — before hydration the resend button has not
+    // taken its "in 45s" form yet.
+    await p.locator('input[name="code"]').waitFor({ state: "visible", timeout: 15000 });
     const arrival = await p.locator("body").innerText();
     // A screen that sits perfectly still while you wait on an email reads as
     // broken rather than patient — there is no way to tell it apart from one

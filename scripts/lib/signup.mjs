@@ -22,6 +22,54 @@ export function testEmail(prefix) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e4)}@${TEST_EMAIL_DOMAIN}`;
 }
 
+/**
+ * Skip the launch screen and first-run intro for a browser context.
+ *
+ * Both are full-screen overlays shown to a first-time visitor: SplashScreen
+ * covers the viewport for its first ~850ms, and OnboardingCarousel sits over
+ * the homepage until a signed-out visitor dismisses it. A suite that lands on
+ * a page and clicks straight away is then clicking the overlay, which reads as
+ * "the button does nothing" rather than "something is in front of it".
+ *
+ * Marking both as seen is exactly the state of a returning visitor, so this
+ * skips them rather than faking anything; each is covered by its own checks.
+ * Call once per context, before the first navigation.
+ */
+export async function skipFirstRunScreens(context) {
+  await context.addInitScript(() => {
+    try {
+      sessionStorage.setItem("personalise:splash-seen", "1");
+      localStorage.setItem("personalise:onboarded", "1");
+    } catch {
+      // Private modes throw on both; nothing else to do here.
+    }
+  });
+}
+
+/**
+ * Apply the above to every page a browser opens, for the rest of the run.
+ *
+ * `browser.newPage()` gives each page its own context, so a per-context call
+ * has to be repeated at every call site — and the one that gets forgotten
+ * fails as a timeout on an unrelated button, thirty seconds later, blaming a
+ * feature that works. Wrapping the factory once removes that whole class of
+ * mistake. Call it immediately after launching.
+ */
+export function skipFirstRunScreensEverywhere(browser) {
+  const open = browser.newPage.bind(browser);
+  browser.newPage = async (...args) => {
+    const page = await open(...args);
+    await skipFirstRunScreens(page.context());
+    return page;
+  };
+  const context = browser.newContext.bind(browser);
+  browser.newContext = async (...args) => {
+    const ctx = await context(...args);
+    await skipFirstRunScreens(ctx);
+    return ctx;
+  };
+}
+
 /** The live verification code for an address, or null if none is outstanding. */
 export async function verificationCodeFor(db, email) {
   const { rows } = await db.execute({
@@ -54,6 +102,9 @@ export async function signUpAndVerify(
   db,
   { baseUrl, name, email, password = "password123", phone, intent = "learn" },
 ) {
+  // Idempotent, so calling it per signup is harmless.
+  await skipFirstRunScreens(page.context());
+
   await page.goto(`${baseUrl}/signup`, { waitUntil: "domcontentloaded" });
   if (intent === "teach") {
     await page.getByRole("button", { name: /i want to teach/i }).click();

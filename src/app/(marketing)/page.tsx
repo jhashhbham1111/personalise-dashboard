@@ -20,6 +20,7 @@ import {
 import { DISCIPLINES } from "@/lib/enums";
 import { DEFAULT_TIMEZONE } from "@/lib/time";
 import { InstructorCard } from "@/components/instructor-card";
+import { OnboardingCarousel } from "@/components/onboarding-carousel";
 import { SessionCard } from "@/components/session-card";
 import { VideoCard } from "@/components/video-card";
 import { ButtonLink } from "@/components/ui/button";
@@ -40,6 +41,9 @@ export default async function LandingPage() {
 
   return (
     <>
+      {/* Signed-out only: someone with an account has met the app already. */}
+      {user ? null : <OnboardingCarousel />}
+
       {/* ------------------------------------------------------------ hero */}
       <section className="relative overflow-hidden border-b border-line">
         <div className="absolute inset-0 -z-10 opacity-[0.07] [background-image:radial-gradient(circle_at_15%_25%,#1f6650_0,transparent_45%),radial-gradient(circle_at_85%_15%,#e08c3a_0,transparent_40%)]" />

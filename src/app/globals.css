@@ -125,6 +125,40 @@ input[type="number"] {
   }
 }
 
+/* The launch screen's mark settles in rather than appearing, which is the
+   difference between "the app is starting" and "something flashed". */
+@keyframes splash-mark {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-splash-mark {
+  animation: splash-mark 0.42s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/* Applied only for the leaving beat, so the overlay dissolves into the page
+   underneath instead of being cut away. Dismissal is driven by a timer, never
+   by animationend — a browser that skips the animation (reduced motion, a
+   background tab) would otherwise leave the splash on screen forever. */
+.animate-splash-out {
+  animation: splash-out 0.34s ease-in both;
+}
+
+@keyframes splash-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 /* The live room's chat/people panel is a bottom sheet on a phone and a static
    side column from `md` up. The media query — rather than a `md:animate-none`
    utility — is because plain CSS here sits outside Tailwind's layers and would

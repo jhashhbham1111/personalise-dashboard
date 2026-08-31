@@ -11,7 +11,9 @@
 
 import "dotenv/config";
 import { createClient } from "@libsql/client";
-import { signUpAndVerify, testEmail } from "./lib/signup.mjs";
+import { signUpAndVerify, testEmail,
+  skipFirstRunScreensEverywhere,
+} from "./lib/signup.mjs";
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
@@ -35,6 +37,9 @@ await db.execute("delete from rate_limit_hits");
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
 });
+// The launch screen and first-run intro are full-screen overlays for a
+// first-time visitor; without this they silently swallow the suite's clicks.
+skipFirstRunScreensEverywhere(browser);
 
 async function login(page, email, password = "password123") {
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
@@ -169,10 +174,20 @@ try {
 
   /* ------------------------------------------- a revoked code stops working */
   await instructor.goto(`${BASE}/studio/codes`, { waitUntil: "domcontentloaded" });
+  // domcontentloaded fires before React hydrates, so the first click can land
+  // on a button that is painted but not yet listening, and open nothing.
+  await instructor.waitForLoadState("networkidle");
+
+  const revokeConfirm = instructor.getByRole("button", { name: /^revoke code$/i });
   await instructor.getByRole("button", { name: /^revoke$/i }).first().click();
-  await instructor.waitForTimeout(500);
-  await instructor.getByRole("button", { name: /^revoke code$/i }).click();
-  await instructor.waitForTimeout(1800);
+  // Wait for the dialog rather than a guessed 500ms — the old fixed pause was
+  // sometimes spent before the dialog existed, and the confirm click then had
+  // nothing to hit.
+  await revokeConfirm.waitFor({ state: "visible", timeout: 15000 });
+  await revokeConfirm.click();
+  // The dialog closes itself once the action succeeds (useCloseOnSuccess), so
+  // its disappearance is the signal that the write is done.
+  await revokeConfirm.waitFor({ state: "hidden", timeout: 15000 }).catch(() => {});
 
   const { rows: revoked } = await db.execute(
     "select code from pass_codes where status = 'REVOKED' limit 1",

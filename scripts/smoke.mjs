@@ -12,7 +12,9 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 import { createClient } from "@libsql/client";
-import { testEmail, verificationCodeFor } from "./lib/signup.mjs";
+import { testEmail, verificationCodeFor,
+  skipFirstRunScreensEverywhere,
+} from "./lib/signup.mjs";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const SHOTS = "screenshots";
@@ -30,6 +32,9 @@ function check(name, passed, detail = "") {
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
 });
+// The launch screen and first-run intro are full-screen overlays for a
+// first-time visitor; without this they silently swallow the suite's clicks.
+skipFirstRunScreensEverywhere(browser);
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 
 async function shot(name, fullPage = true) {

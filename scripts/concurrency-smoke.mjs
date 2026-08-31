@@ -13,7 +13,9 @@
 
 import "dotenv/config";
 import { createClient } from "@libsql/client";
-import { signUpAndVerify, testEmail } from "./lib/signup.mjs";
+import { signUpAndVerify, testEmail,
+  skipFirstRunScreensEverywhere,
+} from "./lib/signup.mjs";
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
@@ -72,6 +74,9 @@ const planId = planRows[0].id;
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
 });
+// The launch screen and first-run intro are full-screen overlays for a
+// first-time visitor; without this they silently swallow the suite's clicks.
+skipFirstRunScreensEverywhere(browser);
 
 async function makeStudent(i) {
   const email = testEmail(`race-${i}`);

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
 import { env } from "@/lib/env";
+import { SplashScreen } from "@/components/splash-screen";
 
 import "./globals.css";
 
@@ -54,7 +55,13 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        {children}
+        {/* Last in the body so it never sits between the page and the reader
+            in the accessibility tree, and so the real content is what the
+            server sends. */}
+        <SplashScreen />
+      </body>
     </html>
   );
 }
