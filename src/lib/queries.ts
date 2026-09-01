@@ -265,6 +265,20 @@ export async function listUpcomingSessions(filters?: {
   limit?: number;
   from?: Date;
   to?: Date;
+  /**
+   * Offerings the viewer already holds a usable pass for.
+   *
+   * These are listed even when the instructor is not publicly visible. Being
+   * published and verified is a gate on *discovery* — who a stranger is shown
+   * — and applying it to someone who has already paid meant a student with an
+   * active pass opened "Book a session" and was told there was nothing on the
+   * timetable, while the classes sat right there in the database.
+   *
+   * Suspension still hides everything, because that is the one state
+   * `bookSession` also refuses. The two rules now agree: anything listed here
+   * can actually be booked, and anything bookable can be found.
+   */
+  visibleOfferingIds?: Iterable<string>;
 }) {
   const bookedCount = sql<number>`(
     select count(*) from ${bookings}
@@ -272,13 +286,23 @@ export async function listUpcomingSessions(filters?: {
       and ${bookings.status} = ${BookingStatus.CONFIRMED}
   )`.as("booked_count");
 
+  const paidFor = [...(filters?.visibleOfferingIds ?? [])];
+
   const conditions = [
     eq(classSessions.status, SessionStatus.SCHEDULED),
     filters?.from ? gte(classSessions.startsAt, filters.from) : gte(classSessions.endsAt, new Date()),
-    // Every caller of this is a public page, so a class is only listed if its
-    // instructor is publicly visible — otherwise a hidden or suspended
-    // instructor's classes stay bookable through the class directory.
-    publiclyVisibleInstructor,
+    // A class is listed if its instructor is publicly visible — otherwise a
+    // hidden or suspended instructor's classes stay bookable through the class
+    // directory — or if the viewer already holds a pass for that offering.
+    paidFor.length > 0
+      ? or(
+          publiclyVisibleInstructor,
+          and(
+            inArray(offerings.id, paidFor),
+            eq(instructorProfiles.isSuspended, false),
+          ),
+        )!
+      : publiclyVisibleInstructor,
   ];
   if (filters?.to) conditions.push(lte(classSessions.startsAt, filters.to));
   if (filters?.instructorId)

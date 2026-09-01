@@ -72,6 +72,7 @@ export default async function ClassesPage({
     city?: string;
     mode?: string;
     instructor?: string;
+    offering?: string;
     within?: string;
     from?: string;
   }>;
@@ -79,6 +80,13 @@ export default async function ClassesPage({
   const params = await searchParams;
   const viewer = await getCurrentUser();
   const tz = viewer?.timezone ?? DEFAULT_TIMEZONE;
+
+  // Fetched before the session list rather than alongside it: the list needs
+  // these to decide what the viewer is allowed to see, since a pass they have
+  // paid for outranks whether the instructor is publicly listed.
+  const enrolledIds = viewer
+    ? await enrolledOfferingIds(viewer.id)
+    : new Set<string>();
 
   const instructorRow = params.instructor
     ? await getInstructorBySlug(params.instructor)
@@ -105,21 +113,22 @@ export default async function ClassesPage({
       : addDays(rangeStart, Number(within));
   const windowStart = singleDay ? dayStart : from;
 
-  const [sessions, cities, enrolledIds] = await Promise.all([
+  const [sessions, cities] = await Promise.all([
     listUpcomingSessions({
       discipline: params.discipline,
       city: params.city,
       mode: params.mode,
       instructorId: instructorRow?.profile.id,
+      offeringId: params.offering,
       from: windowStart,
       to,
       limit: 120,
+      visibleOfferingIds: enrolledIds,
     }),
     // Venue cities included: an in-person class in a city no instructor lives
     // in was previously unfilterable, because the options came only from
     // instructor profiles.
     classCities(),
-    viewer ? enrolledOfferingIds(viewer.id) : Promise.resolve(new Set<string>()),
   ]);
 
   const cardViewer = { signedIn: !!viewer, enrolledOfferingIds: enrolledIds };
@@ -158,6 +167,9 @@ export default async function ClassesPage({
       <FilterBar className="mt-6" basePath="/classes">
         {params.instructor ? (
           <input type="hidden" name="instructor" value={params.instructor} />
+        ) : null}
+        {params.offering ? (
+          <input type="hidden" name="offering" value={params.offering} />
         ) : null}
         {params.discipline ? (
           <input type="hidden" name="discipline" value={params.discipline} />
@@ -207,6 +219,7 @@ export default async function ClassesPage({
           city: params.city,
           mode: params.mode,
           instructor: params.instructor,
+          offering: params.offering,
           within: within === DEFAULT_RANGE ? undefined : within,
           from: params.from,
         }}
@@ -257,10 +270,12 @@ export default async function ClassesPage({
                 ) : null}
                 <ButtonLink
                   href={buildHref("/classes", {
-                    // The one filter worth keeping: arriving from an
-                    // instructor's page and being dumped into the full
-                    // marketplace loses the thread of what you were browsing.
+                    // The filters worth keeping: arriving from an instructor's
+                    // page, or from the pass you're trying to spend, and being
+                    // dumped into the full marketplace loses the thread of what
+                    // you were doing.
                     instructor: params.instructor,
+                    offering: params.offering,
                   })}
                 >
                   Clear filters
