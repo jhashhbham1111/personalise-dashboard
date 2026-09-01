@@ -101,7 +101,6 @@ try {
   const code = await verificationCodeFor(db, email);
   check("a verification code was issued", code !== null);
   await page.fill('input[name="code"]', code);
-  await page.click('button[type="submit"]');
   await page.waitForURL("**/dashboard**", { timeout: 20000 });
   check("entering the code completes signup and lands on the dashboard", true);
   await shot("07-dashboard-empty");

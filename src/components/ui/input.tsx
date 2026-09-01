@@ -5,10 +5,16 @@ import { cn } from "@/lib/utils";
 const base =
   "w-full rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink placeholder:text-ink-faint transition-colors hover:border-brand-200 focus:border-brand-400 disabled:cursor-not-allowed disabled:bg-paper disabled:text-ink-faint";
 
+/**
+ * `ComponentPropsWithRef` rather than `InputHTMLAttributes` so callers can hold
+ * a ref to the field — the verification code box takes focus back after a
+ * rejected code. React 19 passes `ref` straight through as a prop, so this is
+ * a typing change only; no `forwardRef` wrapper is needed.
+ */
 export function Input({
   className,
   ...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
+}: React.ComponentPropsWithRef<"input">) {
   return <input className={cn(base, "h-10", className)} {...props} />;
 }
 

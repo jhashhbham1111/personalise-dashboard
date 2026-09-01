@@ -69,8 +69,15 @@ export async function signUpAndVerify(
   const code = await verificationCodeFor(db, email);
   if (!code) throw new Error(`No verification code was issued for ${email}`);
 
+  /*
+   * Filling the box is the whole interaction — the sixth digit submits the
+   * form itself, so there is no button to press.
+   *
+   * Clicking one anyway is not merely redundant, it fails: the submit button
+   * disables while the action is in flight, so the click waits on a disabled
+   * element until it is torn down by the navigation that was already running.
+   */
   await page.fill('input[name="code"]', code);
-  await page.click('button[type="submit"]');
   await page.waitForURL((u) => !u.pathname.startsWith("/verify-email"), {
     timeout: 20000,
   });

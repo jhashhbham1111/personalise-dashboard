@@ -165,9 +165,11 @@ try {
   const realCode = await findCode(GOOD);
   check("a code was issued", realCode !== null);
 
+  // No button press anywhere below: the sixth digit submits the form itself,
+  // so clicking "Confirm email" would race a navigation that has already
+  // started — and on the success path the button is gone before the click.
   const wrong = realCode === "000000" ? "111111" : "000000";
   await page.getByLabel("Verification code").fill(wrong);
-  await page.getByRole("button", { name: /confirm email/i }).click();
   await page.waitForLoadState("networkidle");
   check(
     "a wrong code is refused with the tries remaining",
@@ -184,7 +186,6 @@ try {
   /* --------------------------------------------- 5. the right code lets in */
   console.log("\nThe right code finishes signup");
   await page.getByLabel("Verification code").fill(realCode);
-  await page.getByRole("button", { name: /confirm email/i }).click();
   await page.waitForURL(/\/dashboard/, { timeout: 15000 }).catch(() => {});
   check("verifying lands on the dashboard", page.url().includes("/dashboard"), page.url());
   {
@@ -237,12 +238,76 @@ try {
   const fixedCode = await findCode(FIXED);
   check("a code was issued to the corrected address", fixedCode !== null);
   await typoPage.getByLabel("Verification code").fill(fixedCode);
-  await typoPage.getByRole("button", { name: /confirm email/i }).click();
   await typoPage.waitForURL(/\/dashboard/, { timeout: 15000 }).catch(() => {});
   check("the corrected address verifies", typoPage.url().includes("/dashboard"), typoPage.url());
   await typoPage.close();
 
-  /* ------------------------- 8. an existing verified account is unaffected */
+  /* ------------------------------------- 8. the code box does the work now */
+  console.log("\nThe code box submits itself, survives a paste, and says it is waiting");
+  {
+    const UX = `smoke.ux.${stamp}@koshcloud.com`;
+    await cleanup(UX);
+    const p = await browser.newPage();
+    await signup(p, { name: "Smoke UX", email: UX });
+
+    const arrival = await p.locator("body").innerText();
+    // A screen that sits perfectly still while you wait on an email reads as
+    // broken rather than patient — there is no way to tell it apart from one
+    // that has quietly failed.
+    check("says it is waiting rather than sitting silent", /waiting for your code/i.test(arrival));
+    // Resend is closed on arrival: a code has just been sent, and mashing the
+    // button spends the five sends the server allows in fifteen minutes.
+    check("resend opens on a countdown", /send a new code in \d+s/i.test(arrival),
+      arrival.match(/send a new code in \d+s/i)?.[0] ?? "");
+    check("and is genuinely disabled",
+      await p.getByRole("button", { name: /send a new code/i }).isDisabled());
+
+    // A wrong code has to hand the box back empty and focused, or the next
+    // thing typed lands after six digits already known to be wrong.
+    await p.locator('input[name="code"]').fill("000000");
+    await p.waitForTimeout(2500);
+    check("a rejected code empties the box",
+      (await p.locator('input[name="code"]').inputValue()) === "");
+    check("and takes focus back",
+      (await p.evaluate(() => document.activeElement?.getAttribute("name"))) === "code");
+
+    // The real code, typed but never confirmed with the button.
+    const code = await findCode(UX);
+    await p.locator('input[name="code"]').fill(code);
+    const submitted = await p
+      .waitForURL((u) => !u.pathname.includes("verify-email"), { timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    check("six digits submit themselves", submitted, submitted ? p.url() : "still on /verify-email");
+    await p.close();
+  }
+
+  /* --------------------------- 9. a pasted code arrives with its surroundings */
+  console.log("\nA code pasted out of a mail app still works");
+  {
+    const PASTE = `smoke.paste.${stamp}@koshcloud.com`;
+    await cleanup(PASTE);
+    const p = await browser.newPage();
+    await signup(p, { name: "Smoke Paste", email: PASTE });
+    const code = await findCode(PASTE);
+
+    // What actually leaves a mail app: the sentence around the code, a space
+    // inside it, a trailing newline. Stripping every non-digit would be the
+    // obvious fix and is wrong — a subject line carrying a year first would
+    // yield "2026.." — so this asserts the surrounding number is ignored.
+    await p.locator('input[name="code"]').fill(
+      `Personalise 2026 — your code is ${code.slice(0, 3)} ${code.slice(3)}\n`,
+    );
+    const ok = await p
+      .waitForURL((u) => !u.pathname.includes("verify-email"), { timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    check("a pasted 'Personalise 2026 — your code is 123 456' verifies", ok,
+      ok ? p.url() : "rejected");
+    await p.close();
+  }
+
+  /* ------------------------ 10. an existing verified account is unaffected */
   console.log("\nSeeded accounts still sign in straight to their own home");
   const seeded = await browser.newPage();
   await seeded.goto(`${BASE}/login`);

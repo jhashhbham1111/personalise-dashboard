@@ -56,7 +56,6 @@ try {
   const code = await verificationCodeFor(db, studentEmail);
   check("signup issues a verification code", code !== null, studentEmail);
   await student.fill('input[name="code"]', code);
-  await student.click('button[type="submit"]');
   await student.waitForURL((u) => !u.pathname.startsWith("/verify-email"), {
     timeout: 20000,
   });
