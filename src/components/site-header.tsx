@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Ticket } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth";
 import { unreadNotificationCount } from "@/lib/notify";
@@ -25,9 +26,18 @@ const NAV = [
 export async function SiteHeader({
   homeHref = "/",
   showPublicNav = true,
+  showRedeem = false,
 }: {
   homeHref?: string;
   showPublicNav?: boolean;
+  /**
+   * Shows "Redeem a code" beside the bell. Off by default and switched on by
+   * the student dashboard: redeeming is the student half of an exchange whose
+   * other half is an instructor generating codes, so advertising it in the
+   * studio or the admin area would be offering a teacher their own students'
+   * action.
+   */
+  showRedeem?: boolean;
 } = {}) {
   const user = await getCurrentUser();
   const unread = user ? await unreadNotificationCount(user.id) : 0;
@@ -57,6 +67,20 @@ export async function SiteHeader({
         ) : null}
 
         <div className="ml-auto flex items-center gap-2">
+          {user && showRedeem ? (
+            <Link
+              href="/dashboard/redeem"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+            >
+              <Ticket className="h-4 w-4" />
+              {/* The label goes on a phone, where the header is already
+                  carrying a wordmark, a bell and an avatar. The icon alone
+                  still reads as "ticket", and aria-label keeps it announced. */}
+              <span className="hidden sm:inline">Redeem a code</span>
+              <span className="sr-only sm:hidden">Redeem a code</span>
+            </Link>
+          ) : null}
+
           {user ? (
             <UserMenu user={user} unreadCount={unread} />
           ) : (
