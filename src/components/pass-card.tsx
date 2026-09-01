@@ -31,7 +31,10 @@ export function PassCard({
   const unlimited = enrolment.sessionsRemaining === null;
   const remaining = enrolment.sessionsRemaining ?? 0;
   const total = enrolment.plan?.sessionsIncluded ?? null;
-  const pct = total ? Math.round((remaining / total) * 100) : 100;
+  // Capped: topping a pass up leaves more sessions on it than the plan sells
+  // in one go (4 left plus a fresh 5-class pack is 9 against a total of 5),
+  // and an uncapped bar then runs past the end of its track.
+  const pct = total ? Math.min(100, Math.round((remaining / total) * 100)) : 100;
 
   const expiringSoon =
     enrolment.expiresAt &&
@@ -113,8 +116,11 @@ export function PassCard({
       </p>
 
       <div className="mt-auto pt-3">
+        {/* Scoped to this pass's own offering, not just its instructor: the
+            button is on one pass, so it should land on the classes that pass
+            actually pays for rather than everything the instructor teaches. */}
         <ButtonLink
-          href={`/classes?instructor=${enrolment.instructor.slug}`}
+          href={`/classes?instructor=${enrolment.instructor.slug}&offering=${enrolment.offering.id}`}
           size="sm"
           variant="secondary"
           block

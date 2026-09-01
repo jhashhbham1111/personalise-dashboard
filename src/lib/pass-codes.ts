@@ -238,6 +238,9 @@ export async function redeemPassCode(args: {
     await db
       .update(enrollments)
       .set({
+        // The pass is now the thing they most recently redeemed. Left unset,
+        // the card kept naming whichever plan the enrolment started on.
+        planId: row.planId,
         sessionsRemaining: active.sessionsRemaining + row.sessionsIncluded,
         expiresAt: nextExpiresAt,
       })

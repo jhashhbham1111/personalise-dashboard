@@ -118,7 +118,7 @@ export function GenerateCodesDialog({ plans }: { plans: PlanOption[] }) {
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="How many?" htmlFor="quantity" hint="up to 100">
+          <Field label="How many codes?" htmlFor="quantity" hint="up to 100">
             <Input
               id="quantity"
               name="quantity"
@@ -150,10 +150,15 @@ export function GenerateCodesDialog({ plans }: { plans: PlanOption[] }) {
           <Input id="note" name="note" placeholder="Printed for the January batch" />
         </Field>
 
+        {/* Says what the rule protects, not what the rule is. The previous
+            wording ("the pass terms are fixed when the code is made") was
+            accurate and meant nothing to the person reading it — the point is
+            that a student holding a printed code always gets what they paid
+            for, even after the plan changes. */}
         <p className="rounded-lg bg-brand-50 px-3 py-2.5 text-xs text-brand-800">
-          Each code works once. The pass terms are fixed when the code is made,
-          so editing the plan later won&rsquo;t change what an issued code is
-          worth.
+          Each code can be used once. A code keeps the price and classes it has
+          today — so if you change this pass later, codes you have already
+          handed out still give students exactly what they paid for.
         </p>
 
         <div className="flex justify-end gap-2">

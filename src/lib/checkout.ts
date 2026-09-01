@@ -283,14 +283,22 @@ export async function recordOfflinePayment(args: {
   }
 
   const startedAt = new Date();
+  const candidateExpiry = plan.validityDays ? addDays(startedAt, plan.validityDays) : null;
   let enrollmentId: string;
 
-  if (active) {
-    // Top up in place rather than creating a second pass — same enrolment,
-    // more credits, expiry pushed out if this plan reaches further than the
-    // one already on file.
-    const addedSessions = plan.sessionsIncluded ?? 0;
-    const candidateExpiry = plan.validityDays ? addDays(startedAt, plan.validityDays) : null;
+  /*
+   * Only two credit-based passes merge into one.
+   *
+   * Adding an *unlimited* plan on top of a credit pass used to take this
+   * branch too, and `plan.sessionsIncluded ?? 0` then added zero sessions —
+   * so a student who paid for a month of unlimited classes got nothing but a
+   * later expiry date, on a pass still labelled with whatever they had bought
+   * before. It becomes its own enrolment instead, which is what a monthly
+   * pass is, and matches how redeeming a pass code already behaves.
+   */
+  if (active && active.sessionsRemaining !== null && plan.sessionsIncluded !== null) {
+    // Top up in place — same enrolment, more credits, expiry pushed out if
+    // this plan reaches further than the one already on file.
     const nextExpiresAt =
       candidateExpiry && (!active.expiresAt || candidateExpiry > active.expiresAt)
         ? candidateExpiry
@@ -299,7 +307,11 @@ export async function recordOfflinePayment(args: {
     await db
       .update(enrollments)
       .set({
-        sessionsRemaining: (active.sessionsRemaining ?? 0) + addedSessions,
+        // The pass is now the thing they most recently bought. Left unset,
+        // the card kept naming the original plan — a 10-class pack topped up
+        // with a 5-class pack still read "Drop-in" if that was the first one.
+        planId: plan.id,
+        sessionsRemaining: active.sessionsRemaining + plan.sessionsIncluded,
         expiresAt: nextExpiresAt,
       })
       .where(eq(enrollments.id, active.id));
@@ -315,7 +327,7 @@ export async function recordOfflinePayment(args: {
         status: EnrollmentStatus.ACTIVE,
         sessionsRemaining: plan.sessionsIncluded,
         startedAt,
-        expiresAt: plan.validityDays ? addDays(startedAt, plan.validityDays) : null,
+        expiresAt: candidateExpiry,
       })
       .returning();
     enrollmentId = enrollment.id;
