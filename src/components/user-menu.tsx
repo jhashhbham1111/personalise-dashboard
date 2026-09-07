@@ -5,6 +5,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   BarChart3,
   CalendarDays,
+  Clapperboard,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -54,6 +55,7 @@ export function UserMenu({
     { href: "/studio/profile", label: "My profile", icon: UserCircle, show: isInstructorAccount },
     { href: "/studio/venues", label: "Venues", icon: MapPin, show: isInstructorAccount },
     { href: "/studio/media", label: "Videos", icon: Video, show: isInstructorAccount },
+    { href: "/studio/record", label: "Record a clip", icon: Clapperboard, show: isInstructorAccount },
     { href: "/studio/updates", label: "Updates", icon: Megaphone, show: isInstructorAccount },
     { href: "/studio/analytics", label: "Analytics", icon: BarChart3, show: isInstructorAccount },
     { href: "/admin", label: "Admin", icon: Shield, show: user.role === "ADMIN" },

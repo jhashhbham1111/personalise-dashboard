@@ -10,3 +10,6 @@ screenshots/
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+
+# Editor/tool backups — these have carried a real API key before.
+*.bak

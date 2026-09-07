@@ -55,7 +55,19 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen antialiased">
+      {/*
+       * suppressHydrationWarning is on <body> because browser extensions write
+       * their own attributes onto it before React hydrates — Grammarly adds
+       * data-gr-ext-installed and data-new-gr-c-s-check-loaded, password
+       * managers and translators do the same. React then compares the server's
+       * HTML against a DOM a third party has already edited and reports a
+       * mismatch the app cannot cause and cannot fix.
+       *
+       * The suppression is attribute-level and applies to this element alone:
+       * children are still checked normally, so a real hydration bug anywhere
+       * inside the app still surfaces.
+       */}
+      <body className="min-h-screen antialiased" suppressHydrationWarning>
         {children}
         {/* Last in the body so it never sits between the page and the reader
             in the accessibility tree, and so the real content is what the
