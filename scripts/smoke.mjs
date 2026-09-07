@@ -350,11 +350,14 @@ try {
   // startTime is a hidden input fed by two <select>s (see TimeSelect) — the
   // native time picker was unusable on iOS. Drive the selects, not the input.
   //
-  // 11:00, not the 07:15 this used to use: the seeded instructor already
-  // teaches Mon/Wed/Fri 06:30–07:30, and saveScheduleRuleAction now refuses a
-  // rule that overlaps one the instructor is already committed to. A late
-  // morning slot keeps this fixture clear of the seed data.
-  await page.selectOption('select[aria-label="Hour"]', "11");
+  // 15:00, and the seed is the reason. saveScheduleRuleAction refuses a rule
+  // that overlaps one the instructor is already committed to, and Ananya is
+  // seeded with three: Morning Vinyasa 06:30-07:30, Alignment Intensive
+  // 10:00-13:00 (three hours — this is the one that catches people), and
+  // Evening Restorative 19:00-20:15. 11:00 sat inside the workshop, so this
+  // check failed on any date where a generated Monday met that session.
+  // Mid-afternoon is clear of all three with room either side.
+  await page.selectOption('select[aria-label="Hour"]', "15");
   await page.selectOption('select[aria-label="Minute"]', "0");
   await shot("22-studio-schedule-builder", false);
   await page.getByRole("button", { name: /create schedule/i }).click();
