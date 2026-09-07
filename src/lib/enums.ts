@@ -137,6 +137,7 @@ export const NotificationType = {
   PAYMENT_RECEIVED: "PAYMENT_RECEIVED",
   NEW_ENROLLMENT: "NEW_ENROLLMENT",
   NEW_UPDATE: "NEW_UPDATE",
+  NEW_MESSAGE: "NEW_MESSAGE",
   GENERAL: "GENERAL",
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];

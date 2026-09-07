@@ -201,12 +201,14 @@ try {
     .locator('nav[aria-label="Studio sections"] > a')
     .count();
   check(
-    "the studio tab row is down to the weekly six",
-    primaryTabs === 6,
+    "the studio tab row holds only frequent, weekly-use sections",
+    primaryTabs === 7,
     `${primaryTabs} primary tabs`,
   );
   // The set-up-once sections moved out of a "More" tab and into the account
-  // menu behind the avatar, so the tab row is only the weekly six.
+  // menu behind the avatar; Messages joined the primary row instead (it's a
+  // day-to-day inbox, not a set-up-once page), which is why the count is 7
+  // and not the original 6.
   // Notifications is deliberately no longer listed anywhere in this menu — the
   // header bell is the single way in.
   await studio.getByRole("button", { name: /account menu/i }).click();

@@ -637,6 +637,59 @@ export const emailVerificationCodes = sqliteTable(
   (t) => [index("email_verification_user_idx").on(t.userId)],
 );
 
+/**
+ * One thread between one instructor and one student.
+ *
+ * Scoped to a pair, not an offering — a student who takes two of the same
+ * instructor's classes has one conversation with them, not two. Only ever
+ * created for a pair with an enrolment between them (see src/lib/chat.ts):
+ * this is a paid relationship's DM, not an open inbox a stranger can fill
+ * with messages.
+ *
+ * Read state is two timestamps rather than a per-message receipt, because a
+ * 1:1 thread only ever needs "has this side read up to when the other side
+ * last wrote" — both are bumped to now on that side's own send, so sending a
+ * message never marks itself unread for its own sender.
+ */
+export const conversations = sqliteTable(
+  "conversations",
+  {
+    id: id(),
+    instructorId: text("instructor_id")
+      .notNull()
+      .references(() => instructorProfiles.id, { onDelete: "cascade" }),
+    studentId: text("student_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    lastMessageAt: integer("last_message_at", { mode: "timestamp_ms" }),
+    lastMessagePreview: text("last_message_preview"),
+    instructorReadAt: integer("instructor_read_at", { mode: "timestamp_ms" }),
+    studentReadAt: integer("student_read_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("conversation_pair_unique").on(t.instructorId, t.studentId),
+    index("conversation_instructor_idx").on(t.instructorId, t.lastMessageAt),
+    index("conversation_student_idx").on(t.studentId, t.lastMessageAt),
+  ],
+);
+
+export const chatMessages = sqliteTable(
+  "chat_messages",
+  {
+    id: id(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    senderId: text("sender_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("chat_message_conversation_idx").on(t.conversationId, t.createdAt)],
+);
+
 export const notifications = sqliteTable(
   "notifications",
   {
@@ -927,6 +980,29 @@ export const emailVerificationCodesRelations = relations(
   }),
 );
 
+export const conversationsRelations = relations(conversations, ({ one, many }) => ({
+  instructor: one(instructorProfiles, {
+    fields: [conversations.instructorId],
+    references: [instructorProfiles.id],
+  }),
+  student: one(users, {
+    fields: [conversations.studentId],
+    references: [users.id],
+  }),
+  messages: many(chatMessages),
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [chatMessages.conversationId],
+    references: [conversations.id],
+  }),
+  sender: one(users, {
+    fields: [chatMessages.senderId],
+    references: [users.id],
+  }),
+}));
+
 /* ------------------------------------------------------------ row types */
 
 export type User = typeof users.$inferSelect;
@@ -946,3 +1022,5 @@ export type Notification = typeof notifications.$inferSelect;
 export type ModerationEvent = typeof moderationEvents.$inferSelect;
 export type PassCode = typeof passCodes.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type Conversation = typeof conversations.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;
