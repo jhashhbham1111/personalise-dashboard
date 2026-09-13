@@ -83,13 +83,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, settled: payment.id });
   }
 
-  if (body.type === "payment.failed" && payment.status !== PaymentStatus.PAID) {
+  // Cancelled (the student backed out of Dodo's checkout page) is treated the
+  // same as failed — there's no separate PaymentStatus for it, and the
+  // outcome for the student is identical: no pass, and the return page's
+  // poller should stop waiting instead of spinning for ~60s before giving up.
+  if (
+    (body.type === "payment.failed" || body.type === "payment.cancelled") &&
+    payment.status !== PaymentStatus.PAID
+  ) {
     await db
       .update(payments)
       .set({
         status: PaymentStatus.FAILED,
         providerPaymentId: data.payment_id ?? null,
-        failureReason: data.error_message ?? "Payment failed at gateway",
+        failureReason:
+          data.error_message ??
+          (body.type === "payment.cancelled"
+            ? "Cancelled at checkout"
+            : "Payment failed at gateway"),
       })
       .where(eq(payments.id, payment.id));
     return NextResponse.json({ ok: true, failed: payment.id });
