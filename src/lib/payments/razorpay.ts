@@ -76,6 +76,7 @@ export const razorpayProvider: PaymentProvider = {
       amountPaise: body.amount,
       currency: body.currency,
       checkoutKey: env.razorpay.keyId ?? null,
+      checkoutUrl: null,
     };
   },
 
@@ -86,9 +87,11 @@ export const razorpayProvider: PaymentProvider = {
     return safeEqual(expected, signature);
   },
 
-  verifyWebhookSignature(rawBody: string, signature: string): boolean {
+  verifyWebhookSignature(rawBody: string, headers): boolean {
     const secret = env.razorpay.webhookSecret;
     if (!secret) return false;
+    const signature = headers["x-razorpay-signature"] ?? "";
+    if (!signature) return false;
     const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
     return safeEqual(expected, signature);
   },

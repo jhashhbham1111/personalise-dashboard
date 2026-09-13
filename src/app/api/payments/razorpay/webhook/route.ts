@@ -34,9 +34,12 @@ type RazorpayWebhook = {
 export async function POST(request: Request) {
   // The signature is computed over the exact bytes, so read the raw body first.
   const raw = await request.text();
-  const signature = request.headers.get("x-razorpay-signature") ?? "";
 
-  if (!getPaymentProvider().verifyWebhookSignature(raw, signature)) {
+  if (
+    !getPaymentProvider().verifyWebhookSignature(raw, {
+      "x-razorpay-signature": request.headers.get("x-razorpay-signature"),
+    })
+  ) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 

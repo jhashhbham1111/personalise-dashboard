@@ -179,14 +179,45 @@ export default async function DiagnosticsPage() {
           }
         >
           <Row label="ONLINE_PAYMENTS=on" ok={env.onlinePayments} />
-          <Row label="PAYMENT_PROVIDER=razorpay" ok={env.paymentProvider === "razorpay"} />
-          <Row label="RAZORPAY_KEY_ID" ok={!!env.razorpay.keyId} />
-          <Row label="RAZORPAY_KEY_SECRET" ok={!!env.razorpay.keySecret} />
           <Row
-            label="RAZORPAY_WEBHOOK_SECRET"
-            ok={!!env.razorpay.webhookSecret}
-            note="Without it the webhook can't verify signatures and payments never confirm."
+            label={`PAYMENT_PROVIDER=${env.paymentProvider}`}
+            ok={env.paymentProvider !== "mock"}
           />
+          {env.paymentProvider === "razorpay" ? (
+            <>
+              <Row label="RAZORPAY_KEY_ID" ok={!!env.razorpay.keyId} />
+              <Row label="RAZORPAY_KEY_SECRET" ok={!!env.razorpay.keySecret} />
+              <Row
+                label="RAZORPAY_WEBHOOK_SECRET"
+                ok={!!env.razorpay.webhookSecret}
+                note="Without it the webhook can't verify signatures and payments never confirm."
+              />
+            </>
+          ) : null}
+          {env.paymentProvider === "dodo" ? (
+            <>
+              <Row label="DODO_PAYMENTS_API_KEY" ok={!!env.dodo.apiKey} />
+              <Row
+                label="DODO_PRODUCT_ID"
+                ok={!!env.dodo.productId}
+                note="Must be a product with 'Pay what you want' enabled in the Dodo dashboard — otherwise every checkout silently charges that product's own fixed price instead of the instructor's plan price."
+              />
+              <Row
+                label="DODO_PAYMENTS_WEBHOOK_KEY"
+                ok={!!env.dodo.webhookKey}
+                note="Without it the webhook can't verify signatures and payments never confirm — Dodo has no other path to fulfilment."
+              />
+              <Row
+                label={`DODO_PAYMENTS_ENVIRONMENT=${env.dodo.environment}`}
+                ok={true}
+                note={
+                  env.dodo.environment === "live_mode"
+                    ? "Real money moves."
+                    : "Test mode — no real money moves yet. Switch to live_mode when you're ready to take real payments."
+                }
+              />
+            </>
+          ) : null}
         </Panel>
 
         <Panel

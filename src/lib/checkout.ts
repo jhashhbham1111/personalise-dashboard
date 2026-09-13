@@ -36,7 +36,13 @@ export async function startCheckout(args: {
   studentId: string;
   planId: string;
 }): Promise<
-  | { ok: true; paymentId: string; orderId: string; checkoutKey: string | null }
+  | {
+      ok: true;
+      paymentId: string;
+      orderId: string;
+      checkoutKey: string | null;
+      checkoutUrl: string | null;
+    }
   | { ok: false; error: string }
 > {
   // The authoritative gate. The UI hides the pay button when online payments
@@ -74,6 +80,7 @@ export async function startCheckout(args: {
     .values({
       studentId: args.studentId,
       instructorId: plan.offering.instructorId,
+      planId: plan.id,
       invoiceNo,
       description: `${plan.offering.title} — ${plan.name}`,
       amountPaise: plan.amountPaise,
@@ -112,7 +119,11 @@ export async function startCheckout(args: {
 
   await db
     .update(payments)
-    .set({ providerOrderId: order.orderId, status: PaymentStatus.PENDING })
+    .set({
+      providerOrderId: order.orderId,
+      providerCheckoutUrl: order.checkoutUrl,
+      status: PaymentStatus.PENDING,
+    })
     .where(eq(payments.id, payment.id));
 
   return {
@@ -120,6 +131,7 @@ export async function startCheckout(args: {
     paymentId: payment.id,
     orderId: order.orderId,
     checkoutKey: order.checkoutKey,
+    checkoutUrl: order.checkoutUrl,
   };
 }
 
@@ -197,6 +209,42 @@ export async function fulfilPayment(args: {
   return { ok: true, enrollmentId };
 }
 
+/**
+ * Works out what a payment bought.
+ *
+ * `payment.planId` is set at checkout time and is the only path that should
+ * ever run for a payment created from here on. The description-parsing branch
+ * below only exists for rows created before that column did — it splits
+ * `description` back into "<offering title> — <plan name>" and matches the
+ * offering by title, which breaks the moment two offerings share a title. Keep
+ * it only as a fallback for old data, never as the primary path.
+ */
+async function resolvePlanForPayment(
+  payment: typeof payments.$inferSelect,
+): Promise<{
+  offering: (typeof offerings.$inferSelect) | null;
+  plan: (typeof pricingPlans.$inferSelect) | null;
+}> {
+  if (payment.planId) {
+    const plan = await db.query.pricingPlans.findFirst({
+      where: eq(pricingPlans.id, payment.planId),
+      with: { offering: true },
+    });
+    if (plan) return { offering: plan.offering, plan };
+  }
+
+  const [title, planName] = payment.description.split(" — ");
+  const offering = await db.query.offerings.findFirst({
+    where: eq(offerings.title, title ?? ""),
+    with: { plans: true },
+  });
+  if (!offering) return { offering: null, plan: null };
+
+  const plan =
+    offering.plans.find((p) => p.name === planName) ?? offering.plans[0] ?? null;
+  return { offering, plan };
+}
+
 /** Creates the enrolment a paid payment entitles the student to. */
 async function grantEnrollment(paymentId: string): Promise<string | null> {
   const payment = await db.query.payments.findFirst({
@@ -204,17 +252,8 @@ async function grantEnrollment(paymentId: string): Promise<string | null> {
   });
   if (!payment) return null;
 
-  // The description is "<offering title> — <plan name>"; resolve back to the plan.
-  const [title, planName] = payment.description.split(" — ");
-  const offering = await db.query.offerings.findFirst({
-    where: eq(offerings.title, title ?? ""),
-    with: { plans: true },
-  });
-  if (!offering) return null;
-
-  const plan =
-    offering.plans.find((p) => p.name === planName) ?? offering.plans[0] ?? null;
-  if (!plan) return null;
+  const { offering, plan } = await resolvePlanForPayment(payment);
+  if (!offering || !plan) return null;
 
   const startedAt = new Date();
   const [enrollment] = await db

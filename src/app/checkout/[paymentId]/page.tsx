@@ -9,6 +9,7 @@ import { env } from "@/lib/env";
 import { formatMoney } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 import { Card } from "@/components/ui/card";
+import { DodoCheckout } from "./dodo-checkout";
 import { MockCheckout } from "./mock-checkout";
 import { RazorpayCheckout } from "./razorpay-checkout";
 
@@ -74,6 +75,12 @@ export default async function CheckoutPage({
                 description={payment.description}
                 keyId={env.razorpay.keyId ?? ""}
                 customer={{ name: user.name, email: user.email }}
+              />
+            ) : env.paymentProvider === "dodo" ? (
+              <DodoCheckout
+                amountPaise={payment.amountPaise}
+                currency={payment.currency}
+                checkoutUrl={payment.providerCheckoutUrl}
               />
             ) : (
               <MockCheckout

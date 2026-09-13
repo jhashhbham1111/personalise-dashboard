@@ -33,6 +33,7 @@ export const mockPaymentProvider: PaymentProvider = {
       amountPaise: input.amountPaise,
       currency: input.currency,
       checkoutKey: null,
+      checkoutUrl: null,
     };
   },
 
@@ -40,7 +41,8 @@ export const mockPaymentProvider: PaymentProvider = {
     return sign(orderId, paymentId) === signature;
   },
 
-  verifyWebhookSignature(rawBody: string, signature: string): boolean {
+  verifyWebhookSignature(rawBody: string, headers): boolean {
+    const signature = headers["x-mock-signature"] ?? "";
     return (
       createHmac("sha256", MOCK_SECRET).update(rawBody).digest("hex") === signature
     );

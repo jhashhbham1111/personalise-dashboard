@@ -49,12 +49,35 @@ export const env = {
     domain: optional("JITSI_DOMAIN") || "meet.jit.si",
   },
 
-  /** mock | razorpay */
-  paymentProvider: (optional("PAYMENT_PROVIDER") || "mock") as "mock" | "razorpay",
+  /** mock | razorpay | dodo */
+  paymentProvider: (optional("PAYMENT_PROVIDER") || "mock") as
+    | "mock"
+    | "razorpay"
+    | "dodo",
   razorpay: {
     keyId: optional("RAZORPAY_KEY_ID"),
     keySecret: optional("RAZORPAY_KEY_SECRET"),
     webhookSecret: optional("RAZORPAY_WEBHOOK_SECRET"),
+  },
+  /**
+   * Dodo Payments — a merchant of record, so Dodo (not Personalise) is the
+   * legal seller and owns GST/VAT collection and remittance.
+   *
+   * `productId` is a single placeholder product created once in the Dodo
+   * dashboard. Every instructor's pricing plan is a different amount, and
+   * Dodo's checkout only accepts a dynamic per-checkout `amount` on a product
+   * that has "Pay what you want" turned on — with it off, Dodo silently
+   * charges the product's own fixed price instead of what we asked for. This
+   * is a dashboard setting, not something this app can assert at boot, so it
+   * is called out again on `/admin/diagnostics` and in `.env.example`.
+   */
+  dodo: {
+    apiKey: optional("DODO_PAYMENTS_API_KEY"),
+    webhookKey: optional("DODO_PAYMENTS_WEBHOOK_KEY"),
+    productId: optional("DODO_PRODUCT_ID"),
+    environment: (optional("DODO_PAYMENTS_ENVIRONMENT") || "test_mode") as
+      | "test_mode"
+      | "live_mode",
   },
 
   /** console | resend */
@@ -155,6 +178,14 @@ export function assertProviderConfig() {
   if (env.paymentProvider === "razorpay") {
     if (!env.razorpay.keyId) problems.push("RAZORPAY_KEY_ID");
     if (!env.razorpay.keySecret) problems.push("RAZORPAY_KEY_SECRET");
+  }
+  if (env.paymentProvider === "dodo") {
+    if (!env.dodo.apiKey) problems.push("DODO_PAYMENTS_API_KEY");
+    if (!env.dodo.productId) problems.push("DODO_PRODUCT_ID");
+    // Without this, the webhook can never verify a signature, so no Dodo
+    // payment can ever be fulfilled — checked outside `isProd` too, since a
+    // Dodo test-mode deploy with no webhook key is just as broken.
+    if (!env.dodo.webhookKey) problems.push("DODO_PAYMENTS_WEBHOOK_KEY");
   }
   if (env.notifyProvider === "resend") {
     if (!env.resendApiKey) problems.push("RESEND_API_KEY");
