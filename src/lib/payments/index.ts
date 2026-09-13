@@ -1,10 +1,13 @@
 import { env } from "../env";
+import { dodoProvider } from "./dodo";
 import { mockPaymentProvider } from "./mock";
 import type { PaymentProvider } from "./provider";
 import { razorpayProvider } from "./razorpay";
 
 export function getPaymentProvider(): PaymentProvider {
-  return env.paymentProvider === "razorpay" ? razorpayProvider : mockPaymentProvider;
+  if (env.paymentProvider === "razorpay") return razorpayProvider;
+  if (env.paymentProvider === "dodo") return dodoProvider;
+  return mockPaymentProvider;
 }
 
 export * from "./provider";

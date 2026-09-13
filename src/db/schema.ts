@@ -418,6 +418,20 @@ export const payments = sqliteTable(
     bookingId: text("booking_id").references(() => bookings.id, {
       onDelete: "set null",
     }),
+    /**
+     * The plan this payment bought, set at checkout time.
+     *
+     * Before this column existed, `grantEnrollment` recovered the plan by
+     * splitting `description` back into "<offering title> — <plan name>" and
+     * matching the offering by title — fragile the moment two offerings (from
+     * different instructors, or the same one) shared a title. Carrying the id
+     * through directly means fulfilment never has to guess. Nullable because
+     * older rows and ad-hoc offline payments predate it or never had a saved
+     * plan; `grantEnrollment` falls back to the description parse only then.
+     */
+    planId: text("plan_id").references(() => pricingPlans.id, {
+      onDelete: "set null",
+    }),
     invoiceNo: text("invoice_no").notNull().unique(),
     description: text("description").notNull(),
     amountPaise: integer("amount_paise").notNull(),
@@ -426,6 +440,8 @@ export const payments = sqliteTable(
     provider: text("provider").notNull().default("mock"),
     providerOrderId: text("provider_order_id"),
     providerPaymentId: text("provider_payment_id"),
+    /** The Dodo/Razorpay hosted checkout page for this order, if the provider is redirect-based. */
+    providerCheckoutUrl: text("provider_checkout_url"),
     status: text("status").notNull().default("CREATED"),
     failureReason: text("failure_reason"),
     refundedPaise: integer("refunded_paise").notNull().default(0),
@@ -875,6 +891,10 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   booking: one(bookings, {
     fields: [payments.bookingId],
     references: [bookings.id],
+  }),
+  plan: one(pricingPlans, {
+    fields: [payments.planId],
+    references: [pricingPlans.id],
   }),
 }));
 
