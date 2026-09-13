@@ -108,3 +108,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true, ignored: body.type });
 }
+
+// Trivial marker commit so this branch differs from main and Vercel builds
+// a distinct Preview deployment for the Dodo sandbox test. Safe to remove
+// once the test is done.
