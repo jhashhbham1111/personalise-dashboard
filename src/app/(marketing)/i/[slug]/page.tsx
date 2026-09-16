@@ -20,6 +20,13 @@ import {
 } from "@/lib/instructor-visibility";
 import { DEFAULT_TIMEZONE, formatLongDate, formatRelative } from "@/lib/time";
 import { POST_TYPE_LABEL } from "@/lib/enums";
+import {
+  breadcrumbJsonLd,
+  endSentence,
+  instructorJsonLd,
+  parseDisciplines,
+} from "@/lib/structured-data";
+import { JsonLd } from "@/components/json-ld";
 import { parseList, pluralize } from "@/lib/utils";
 import Image from "next/image";
 import { Avatar } from "@/components/ui/avatar";
@@ -39,9 +46,48 @@ export async function generateMetadata({
   const { slug } = await params;
   const row = await getInstructorBySlug(slug);
   if (!row) return { title: "Instructor not found" };
+
+  /*
+   * A hidden profile must not be indexable even though the owner and admins
+   * can still open it. generateMetadata runs before the visibility check in
+   * the page body, so the noindex has to be decided here too — otherwise a
+   * crawler that reached the URL any other way would be told it's fair game.
+   */
+  const isPublic = instructorIsPublic(row.profile);
+
+  const disciplines = parseDisciplines(row.profile.disciplines);
+  const city = row.profile.city?.trim();
+
+  // Built rather than reused: the headline alone repeated as the description
+  // gave every instructor a snippet that said nothing a search couldn't
+  // already see in the title. Discipline and city are what someone is
+  // actually searching for.
+  const description = [
+    endSentence(row.profile.headline),
+    disciplines.length ? `Teaches ${disciplines.join(", ")}.` : null,
+    city ? `Based in ${city}.` : null,
+    "Book a class on Personalise.",
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 300);
+
+  const title = city
+    ? `${row.user.name} — ${disciplines[0] ?? "Classes"} in ${city}`
+    : `${row.user.name} — ${row.profile.headline}`;
+
   return {
-    title: `${row.user.name} — ${row.profile.headline}`,
-    description: row.profile.headline,
+    title,
+    description,
+    alternates: { canonical: `/i/${slug}` },
+    robots: isPublic ? undefined : { index: false, follow: false },
+    openGraph: {
+      type: "profile",
+      title,
+      description,
+      url: `/i/${slug}`,
+      images: row.user.avatarUrl ? [{ url: row.user.avatarUrl }] : undefined,
+    },
   };
 }
 
@@ -87,6 +133,31 @@ export default async function InstructorPage({
 
   return (
     <div>
+      {/*
+        Only on the public page. Emitting markup describing a teacher who
+        hasn't been published would be describing a page the public can't
+        reach — and `preview` is exactly the case where that's true.
+      */}
+      {isPublic ? (
+        <JsonLd
+          data={[
+            instructorJsonLd({
+              name: user.name,
+              slug: profile.slug,
+              headline: profile.headline,
+              bio: profile.bio,
+              city: profile.city,
+              avatarUrl: user.avatarUrl,
+              disciplines: parseDisciplines(profile.disciplines),
+            }),
+            breadcrumbJsonLd([
+              { name: "Instructors", path: "/instructors" },
+              { name: user.name, path: `/i/${profile.slug}` },
+            ]),
+          ]}
+        />
+      ) : null}
+
       {preview ? (
         <PreviewBanner reason={visibilityReason(profile) ?? "Not visible to students."} />
       ) : null}

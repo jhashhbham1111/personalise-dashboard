@@ -8,6 +8,9 @@ import { db, enrollments, instructorProfiles, users, videoAssets } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
 import { listVideos } from "@/lib/queries";
 import { EnrollmentStatus, VIDEO_TYPE_LABEL, Visibility } from "@/lib/enums";
+import { instructorIsPublic } from "@/lib/instructor-visibility";
+import { videoJsonLd } from "@/lib/structured-data";
+import { JsonLd } from "@/components/json-ld";
 import { formatRelative } from "@/lib/time";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +27,33 @@ export async function generateMetadata({
   const video = await db.query.videoAssets.findFirst({
     where: eq(videoAssets.id, id),
   });
-  return { title: video?.title ?? "Video not found" };
+  if (!video) return { title: "Video not found" };
+
+  const description =
+    video.description?.trim().slice(0, 300) ||
+    `Watch ${video.title} on Personalise.`;
+
+  return {
+    title: video.title,
+    description,
+    alternates: { canonical: `/videos/${id}` },
+    /*
+     * Only public videos belong in the index. An ENROLLED_ONLY or PAID
+     * recording renders a locked page to a crawler, which is thin content
+     * pointing at something nobody signed out can watch.
+     */
+    robots:
+      video.visibility === Visibility.PUBLIC
+        ? undefined
+        : { index: false, follow: false },
+    openGraph: {
+      type: "video.other",
+      title: video.title,
+      description,
+      url: `/videos/${id}`,
+      images: video.thumbnailUrl ? [{ url: video.thumbnailUrl }] : undefined,
+    },
+  };
 }
 
 export default async function VideoPage({
@@ -86,6 +115,20 @@ export default async function VideoPage({
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+      {video.visibility === Visibility.PUBLIC && instructorIsPublic(instructor) ? (
+        <JsonLd
+          data={videoJsonLd({
+            id: video.id,
+            title: video.title,
+            description: video.description,
+            thumbnailUrl: video.thumbnailUrl,
+            publishedAt: video.publishedAt,
+            durationSec: video.durationSec,
+            instructorName,
+          })}
+        />
+      ) : null}
+
       <nav className="mb-5 text-sm text-ink-soft">
         <Link href="/videos" className="hover:text-brand-700">
           Videos

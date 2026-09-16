@@ -13,6 +13,12 @@ import {
   MODE_LABEL,
   OFFERING_TYPE_LABEL,
 } from "@/lib/enums";
+import {
+  breadcrumbJsonLd,
+  courseJsonLd,
+  endSentence,
+} from "@/lib/structured-data";
+import { JsonLd } from "@/components/json-ld";
 import { env } from "@/lib/env";
 import {
   canPreviewInstructor,
@@ -35,8 +41,54 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string; offering: string }>;
 }): Promise<Metadata> {
-  const { offering } = await params;
-  return { title: `Enrol — ${offering}` };
+  const { slug, offering: offeringSlug } = await params;
+
+  // This used to return the raw URL slug as the title, so the page that is
+  // meant to sell a class advertised itself to Google as "Enrol — test3".
+  const row = await getInstructorBySlug(slug);
+  if (!row) return { title: "Class not found" };
+
+  const found = await db.query.offerings.findFirst({
+    where: and(
+      eq(offerings.instructorId, row.profile.id),
+      eq(offerings.slug, offeringSlug),
+    ),
+    with: { venue: true },
+  });
+  if (!found) return { title: "Class not found" };
+
+  const where = found.venue?.city || row.profile.city?.trim();
+  const title = where
+    ? `${found.title} with ${row.user.name} — ${where}`
+    : `${found.title} with ${row.user.name}`;
+
+  const description = [
+    endSentence(found.summary || found.description?.slice(0, 160)),
+    endSentence(
+      `${found.durationMin} minute ${MODE_LABEL[found.mode]?.toLowerCase() ?? ""} ${found.discipline} class${where ? ` in ${where}` : ""}`.replace(
+        /\s+/g,
+        " ",
+      ),
+    ),
+    "Book online on Personalise.",
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 300);
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/i/${slug}/enrol/${offeringSlug}` },
+    robots: instructorIsPublic(row.profile) ? undefined : { index: false, follow: false },
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      url: `/i/${slug}/enrol/${offeringSlug}`,
+      images: found.coverImageUrl ? [{ url: found.coverImageUrl }] : undefined,
+    },
+  };
 }
 
 export default async function EnrolPage({
@@ -120,8 +172,47 @@ export default async function EnrolPage({
         }
       : null;
 
+  // "from ₹X" — the cheapest pass a student could actually buy today.
+  const lowestAmountPaise = activePlans.length
+    ? Math.min(...activePlans.map((p) => p.amountPaise))
+    : null;
+
   return (
     <div>
+      {isPublic ? (
+        <JsonLd
+          data={[
+            courseJsonLd({
+              title: offering.title,
+              summary: offering.summary,
+              description: offering.description,
+              instructorName: row.user.name,
+              instructorSlug: slug,
+              offeringSlug,
+              mode: offering.mode,
+              durationMin: offering.durationMin,
+              // The label, not the enum: "ALL_LEVELS" is a database value,
+              // "All levels" is what a person reading a result understands.
+              level: LEVEL_LABEL[offering.level] ?? offering.level,
+              lowestAmountPaise,
+              city: row.profile.city,
+              venue: offering.venue
+                ? {
+                    name: offering.venue.name,
+                    addressLine: offering.venue.addressLine,
+                    city: offering.venue.city,
+                  }
+                : null,
+            }),
+            breadcrumbJsonLd([
+              { name: "Instructors", path: "/instructors" },
+              { name: row.user.name, path: `/i/${slug}` },
+              { name: offering.title, path: `/i/${slug}/enrol/${offeringSlug}` },
+            ]),
+          ]}
+        />
+      ) : null}
+
       {preview ? (
         <PreviewBanner
           reason={visibilityReason(row.profile) ?? "Not visible to students."}

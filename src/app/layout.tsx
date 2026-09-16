@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 
 import { env } from "@/lib/env";
+import { organizationJsonLd, websiteJsonLd } from "@/lib/structured-data";
+import { JsonLd } from "@/components/json-ld";
 import { SplashScreen } from "@/components/splash-screen";
 
 import "./globals.css";
@@ -9,10 +11,19 @@ export const metadata: Metadata = {
   // Makes every relative og:image and canonical URL in the app resolve against
   // the real origin instead of localhost.
   metadataBase: new URL(env.appUrl),
+  // The homepage is the one page that has to carry the brand name *and* the
+  // category, because a brand nobody has heard of earns no searches on its
+  // own — the category words are what an unfamiliar person actually types.
   title: {
-    default: "Personalise — learn from instructors who actually teach",
+    default:
+      "Personalise — Book Online Yoga, Fitness & Music Classes in India",
     template: "%s · Personalise",
   },
+  // Deliberately no `alternates.canonical` here. Metadata set on the root
+  // layout is inherited by every page that doesn't override it, so a canonical
+  // of "/" would tell Google that /contact, /classes and everything else are
+  // duplicates of the homepage — and they'd drop out of the index. Canonicals
+  // belong on the individual pages, which is where they're set.
   description:
     "Book live and in-person classes with yoga teachers, musicians, dancers and coaches. Schedules, passes, recordings and live classes in one place.",
   applicationName: env.appName,
@@ -68,6 +79,13 @@ export default function RootLayout({
        * inside the app still surfaces.
        */}
       <body className="min-h-screen antialiased" suppressHydrationWarning>
+        {/*
+          Sitewide identity. Organization lets Google attach the name and logo
+          to a result from any page rather than only the homepage, and WebSite
+          declares the instructor search, which is what can render a search box
+          under a brand result.
+        */}
+        <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
         {children}
         {/* Last in the body so it never sits between the page and the reader
             in the accessibility tree, and so the real content is what the

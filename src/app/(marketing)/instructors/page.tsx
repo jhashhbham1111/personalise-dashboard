@@ -10,10 +10,23 @@ import { FilterBar, FilterChips, FilterSelect } from "@/components/filter-bar";
 import { Input } from "@/components/ui/input";
 import { listFilters, pluralize } from "@/lib/utils";
 
+/*
+ * The title carries the words people actually type — "online" and "one-on-one"
+ * — rather than describing the page's function to someone already on the site.
+ * "Find an instructor" is what this page does; it is not what anyone searches.
+ */
 export const metadata: Metadata = {
-  title: "Find an instructor",
+  title: "Find a Yoga, Fitness & Music Instructor — Online & One-on-One",
   description:
-    "Browse yoga teachers, musicians, dancers and coaches taking students now.",
+    "Browse verified yoga teachers, fitness trainers, musicians and dancers taking students now. Book online group classes, one-on-one sessions or in-person classes near you.",
+  alternates: { canonical: "/instructors" },
+  openGraph: {
+    type: "website",
+    title: "Find a Yoga, Fitness & Music Instructor — Online & One-on-One",
+    description:
+      "Browse verified instructors taking students now. Online, one-on-one and in-person classes across India.",
+    url: "/instructors",
+  },
 };
 
 export default async function InstructorsPage({

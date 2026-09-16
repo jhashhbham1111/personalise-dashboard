@@ -39,9 +39,17 @@ function buildHref(
 }
 
 export const metadata: Metadata = {
-  title: "Upcoming classes",
+  title: "Book Online & In-Person Classes — Yoga, Fitness, Music",
   description:
-    "Live online and in-person classes you can book right now, across every discipline.",
+    "Live online classes and in-person sessions you can book right now. Yoga, fitness training, music and dance with verified instructors across India.",
+  alternates: { canonical: "/classes" },
+  openGraph: {
+    type: "website",
+    title: "Book Online & In-Person Classes — Yoga, Fitness, Music",
+    description:
+      "Live online and in-person classes you can book right now, across every discipline.",
+    url: "/classes",
+  },
 };
 
 /**
