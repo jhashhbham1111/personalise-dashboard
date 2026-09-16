@@ -45,9 +45,26 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   const canonicalHost = new URL(env.appUrl).host;
   const requestHost = (await headers()).get("host") ?? canonicalHost;
 
-  // Any hostname that isn't the canonical one is a duplicate of this site.
-  // Preview deployments and the .vercel.app alias land here.
-  if (requestHost !== canonicalHost) {
+  /*
+   * Block the deployment hostnames, not "everything that isn't canonical".
+   *
+   * The stricter rule is tempting and wrong. APP_URL is the only thing that
+   * decides `canonicalHost`, and when it is unset `env.appUrl` falls back to
+   * Vercel's own production domain — so on a deployment where someone forgot
+   * to set it, the real custom domain would fail the comparison and this file
+   * would answer `Disallow: /` to Google for the live site. A missing
+   * environment variable must not be able to deindex the whole business, and
+   * the failure would be silent for as long as it took someone to think of
+   * reading robots.txt.
+   *
+   * Preview builds and the project alias always answer on *.vercel.app, so
+   * matching that suffix catches every case this needs to catch, and a
+   * misconfigured APP_URL degrades to "canonical tags point at the wrong
+   * domain" — bad, but recoverable, and visible in Search Console.
+   */
+  const isDeploymentHost = requestHost.endsWith(".vercel.app");
+
+  if (isDeploymentHost && requestHost !== canonicalHost) {
     return {
       rules: { userAgent: "*", disallow: "/" },
     };
