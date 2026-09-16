@@ -6,17 +6,20 @@ import { Eye, Lock } from "lucide-react";
 
 import { db, enrollments, instructorProfiles, users, videoAssets } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
+import { getFollowState, getVideoLikeState } from "@/lib/engagement";
 import { listVideos } from "@/lib/queries";
 import { EnrollmentStatus, VIDEO_TYPE_LABEL, Visibility } from "@/lib/enums";
 import { instructorIsPublic } from "@/lib/instructor-visibility";
 import { videoJsonLd } from "@/lib/structured-data";
 import { JsonLd } from "@/components/json-ld";
 import { formatRelative } from "@/lib/time";
+import { parseList } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { VideoCard } from "@/components/video-card";
+import { VideoPlayer } from "@/components/video-player";
 
 export async function generateMetadata({
   params,
@@ -105,13 +108,16 @@ export default async function VideoPage({
     }
   }
 
-  const more = (
-    await listVideos({
+  const [more, likeState, following] = await Promise.all([
+    listVideos({
       instructorId: instructor.id,
       viewerId: viewer?.id ?? null,
       limit: 4,
-    })
-  ).filter((v) => v.id !== video.id);
+    }).then((rows) => rows.filter((v) => v.id !== video.id)),
+    getVideoLikeState(video.id, viewer?.id ?? null),
+    getFollowState(instructor.id, viewer?.id ?? null),
+  ]);
+  const instructorDiscipline = parseList<string>(instructor.disciplines)[0] ?? null;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -140,16 +146,18 @@ export default async function VideoPage({
       </nav>
 
       {canWatch ? (
-        <div className="overflow-hidden rounded-[var(--radius-card)] border border-line bg-ink">
-          <video
-            src={video.url}
-            poster={video.thumbnailUrl ?? undefined}
-            controls
-            playsInline
-            preload="metadata"
-            className="aspect-video w-full"
-          />
-        </div>
+        <VideoPlayer
+          src={video.url}
+          poster={video.thumbnailUrl}
+          videoId={video.id}
+          instructorId={instructor.id}
+          instructorName={instructorName}
+          instructorDiscipline={instructorDiscipline}
+          viewerSignedIn={!!viewer}
+          initialLiked={likeState.liked}
+          initialLikeCount={likeState.count}
+          initialFollowing={following}
+        />
       ) : (
         <Card className="flex aspect-video flex-col items-center justify-center gap-3 border-dashed bg-surface text-center">
           <Lock className="h-8 w-8 text-ink-faint" />

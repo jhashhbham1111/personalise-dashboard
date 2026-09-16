@@ -4,6 +4,7 @@ import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
 import {
   ArrowRight,
   CalendarPlus,
+  Compass,
   Megaphone,
   Users,
   Video,
@@ -276,6 +277,12 @@ export default async function StudioPage() {
                 icon={Video}
                 title="Add a video"
                 body="Publish a vlog or share a class recording."
+              />
+              <Shortcut
+                href="/studio/explore"
+                icon={Compass}
+                title="Explore by discipline"
+                body="See who else teaches yoga, dance, fitness and more."
               />
               <Shortcut
                 href="/studio/payments"

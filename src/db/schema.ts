@@ -489,6 +489,39 @@ export const videoAssets = sqliteTable(
   ],
 );
 
+export const videoLikes = sqliteTable(
+  "video_likes",
+  {
+    id: id(),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videoAssets.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("video_like_unique").on(t.videoId, t.userId)],
+);
+
+export const instructorFollows = sqliteTable(
+  "instructor_follows",
+  {
+    id: id(),
+    instructorId: text("instructor_id")
+      .notNull()
+      .references(() => instructorProfiles.id, { onDelete: "cascade" }),
+    followerId: text("follower_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("instructor_follow_unique").on(t.followerId, t.instructorId),
+    index("instructor_follow_instructor_idx").on(t.instructorId),
+  ],
+);
+
 export const posts = sqliteTable(
   "posts",
   {

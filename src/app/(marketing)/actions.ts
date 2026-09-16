@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { bookSession, cancelBooking } from "@/lib/booking";
 import { startCheckout } from "@/lib/checkout";
+import { toggleInstructorFollow, toggleVideoLike } from "@/lib/engagement";
 import { previewPassCode, redeemPassCode } from "@/lib/pass-codes";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { fail, ok, str, type ActionState } from "@/lib/actions";
@@ -83,6 +84,22 @@ export async function redeemPassCodeAction(
   revalidatePath("/dashboard/payments");
 
   return ok(`${result.label} is active. Book your first class whenever you like.`);
+}
+
+/**
+ * Toggle a like on a video snippet. Called directly from a client component
+ * (no <form>, no useActionState) — a heart button is a single value flip, not
+ * a submission with fields to validate.
+ */
+export async function toggleVideoLikeAction(videoId: string) {
+  const user = await requireUser(`/videos/${videoId}`);
+  return toggleVideoLike(videoId, user.id);
+}
+
+/** Toggle following an instructor. Same direct-call shape as the like above. */
+export async function toggleInstructorFollowAction(instructorId: string) {
+  const user = await requireUser();
+  return toggleInstructorFollow(instructorId, user.id);
 }
 
 /** Start paying for a pass. Redirects into the checkout. */

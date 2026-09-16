@@ -138,6 +138,7 @@ export const NotificationType = {
   NEW_ENROLLMENT: "NEW_ENROLLMENT",
   NEW_UPDATE: "NEW_UPDATE",
   NEW_MESSAGE: "NEW_MESSAGE",
+  NEW_FOLLOWER: "NEW_FOLLOWER",
   GENERAL: "GENERAL",
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
