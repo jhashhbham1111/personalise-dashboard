@@ -7,9 +7,17 @@ import { VideoCard } from "@/components/video-card";
 import { EmptyState, PageHeader } from "@/components/ui/page";
 
 export const metadata: Metadata = {
-  title: "Video library",
+  title: "Free Yoga & Fitness Video Lessons",
   description:
-    "Free lessons and vlogs from instructors. Class recordings unlock when you enrol.",
+    "Free lessons and vlogs from verified instructors. Watch yoga, fitness and music videos — class recordings unlock when you enrol.",
+  alternates: { canonical: "/videos" },
+  openGraph: {
+    type: "website",
+    title: "Free Yoga & Fitness Video Lessons",
+    description:
+      "Free lessons and vlogs from verified instructors on Personalise.",
+    url: "/videos",
+  },
 };
 
 export default async function VideosPage() {

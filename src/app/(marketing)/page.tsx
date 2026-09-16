@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import {
   CalendarDays,
   CreditCard,
@@ -25,6 +26,22 @@ import { SessionCard } from "@/components/session-card";
 import { VideoCard } from "@/components/video-card";
 import { ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+/**
+ * The homepage carries its own canonical rather than inheriting one, so the
+ * `.vercel.app` alias and any preview host that serves this page still point
+ * search engines back at the one domain that should rank.
+ */
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: "/",
+    title: "Personalise — Book Online Yoga, Fitness & Music Classes in India",
+    description:
+      "Find verified instructors for online, one-on-one and in-person classes. Schedules, passes and live classes in one place.",
+  },
+};
 
 export default async function LandingPage() {
   const user = await getCurrentUser();
