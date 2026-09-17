@@ -7,7 +7,9 @@ import { CalendarDays, Clock, MapPin, Users, Video } from "lucide-react";
 import { bookings, db, enrollments } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
 import { sessionAvailability } from "@/lib/booking";
-import { getSessionDetail } from "@/lib/queries";
+import { getFollowState, getVideoLikeState } from "@/lib/engagement";
+import { getSessionDetail, listVideos } from "@/lib/queries";
+import { parseList } from "@/lib/utils";
 import {
   BookingStatus,
   EnrollmentStatus,
@@ -31,6 +33,7 @@ import { Badge, SessionStatusBadge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/page";
+import { VideoPlayer } from "@/components/video-player";
 import { BookingPanel } from "./booking-panel";
 
 export async function generateMetadata({
@@ -114,6 +117,23 @@ export default async function SessionPage({
   );
   const now = new Date();
   const isPast = session.endsAt < now;
+
+  /*
+   * A snippet right where someone is deciding whether to book, not tucked
+   * away on the instructor's own page. Forced viewerId: null so this only
+   * ever surfaces a PUBLIC video — an ENROLLED_ONLY recording would be locked
+   * for exactly the person this is meant to convince.
+   */
+  const showcaseVideo = isPast
+    ? null
+    : (await listVideos({ instructorId: instructor.id, viewerId: null, limit: 1 }))[0] ?? null;
+  const [showcaseLikeState, showcaseFollowing] = showcaseVideo
+    ? await Promise.all([
+        getVideoLikeState(showcaseVideo.id, viewer?.id ?? null),
+        getFollowState(instructor.id, viewer?.id ?? null),
+      ])
+    : [null, false];
+  const instructorDiscipline = parseList<string>(instructor.disciplines)[0] ?? null;
 
   /*
    * A pass being ACTIVE isn't the same as it being usable. `bookSession` also
@@ -220,6 +240,29 @@ export default async function SessionPage({
             <Alert tone="danger" className="mt-5">
               <strong>This class was cancelled.</strong> {session.cancelReason}
             </Alert>
+          ) : null}
+
+          {showcaseVideo ? (
+            <section className="mt-6">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-faint">
+                Watch {instructorName.split(" ")[0]} teach
+              </h2>
+              <div className="mt-2">
+                <VideoPlayer
+                  src={showcaseVideo.url}
+                  poster={showcaseVideo.thumbnailUrl}
+                  videoId={showcaseVideo.id}
+                  instructorId={instructor.id}
+                  instructorSlug={instructor.slug}
+                  instructorName={instructorName}
+                  instructorDiscipline={instructorDiscipline}
+                  viewerSignedIn={!!viewer}
+                  initialLiked={showcaseLikeState?.liked ?? false}
+                  initialLikeCount={showcaseLikeState?.count ?? 0}
+                  initialFollowing={showcaseFollowing}
+                />
+              </div>
+            </section>
           ) : null}
 
           {venue ? (
