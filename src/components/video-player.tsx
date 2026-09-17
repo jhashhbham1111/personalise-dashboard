@@ -11,14 +11,18 @@ import {
 import { cn } from "@/lib/utils";
 import { Button, ButtonLink } from "@/components/ui/button";
 
+/** How long a video has to actually play before the engagement prompt shows. */
+const ENGAGEMENT_PROMPT_SECONDS = 90;
+
 /**
  * Class recording / vlog player.
  *
- * Surfaces a like/follow/explore prompt at the top of the frame once a minute
- * of actual playback has accumulated (tracked off the video's own
- * currentTime, not a wall-clock timer — a paused video shouldn't nag), or as
- * soon as the video ends, whichever comes first — most snippets run well
- * under a minute, so `ended` is the one that actually fires for them.
+ * Surfaces a like/follow/explore prompt at the top of the frame once
+ * ENGAGEMENT_PROMPT_SECONDS of actual playback has accumulated (tracked off
+ * the video's own currentTime, not a wall-clock timer — a paused video
+ * shouldn't nag), or as soon as the video ends, whichever comes first — most
+ * snippets run well under that, so `ended` is the one that actually fires
+ * for them.
  */
 export function VideoPlayer({
   src,
@@ -60,14 +64,15 @@ export function VideoPlayer({
         className="aspect-video w-full"
         onTimeUpdate={() => {
           const v = videoRef.current;
-          if (!v || promptFired.current || v.currentTime < 60) return;
+          if (!v || promptFired.current || v.currentTime < ENGAGEMENT_PROMPT_SECONDS)
+            return;
           promptFired.current = true;
           setShowPrompt(true);
         }}
         onEnded={() => {
-          // Most seeded clips run well under a minute, so the 60s mark above
-          // never fires for them — the prompt still needs to land once the
-          // viewer has watched the whole thing.
+          // Most seeded clips run well under ENGAGEMENT_PROMPT_SECONDS, so the
+          // check above never fires for them — the prompt still needs to land
+          // once the viewer has watched the whole thing.
           if (promptFired.current) return;
           promptFired.current = true;
           setShowPrompt(true);

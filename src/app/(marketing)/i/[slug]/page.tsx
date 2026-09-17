@@ -253,6 +253,21 @@ export default async function InstructorPage({
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <div className="grid gap-10 lg:grid-cols-[1fr_20rem]">
           <div className="min-w-0 space-y-12">
+            {/* --------------------------------------------------- videos */}
+            {/* First thing in the column, not last — this is usually where
+                someone lands after browsing by discipline, and a section
+                buried under classes and the schedule may as well not exist. */}
+            {videos.length > 0 ? (
+              <section id="videos">
+                <SectionTitle>Videos & recordings</SectionTitle>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {videos.map((v) => (
+                    <VideoCard key={v.id} video={v} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             {/* ------------------------------------------------ offerings */}
             <section id="classes">
               <SectionTitle>What {user.name.split(" ")[0]} teaches</SectionTitle>
@@ -304,18 +319,6 @@ export default async function InstructorPage({
                 </div>
               )}
             </section>
-
-            {/* --------------------------------------------------- videos */}
-            {videos.length > 0 ? (
-              <section id="videos">
-                <SectionTitle>Videos & recordings</SectionTitle>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {videos.map((v) => (
-                    <VideoCard key={v.id} video={v} />
-                  ))}
-                </div>
-              </section>
-            ) : null}
 
             {/* -------------------------------------------------- updates */}
             {posts.length > 0 ? (
