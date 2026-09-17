@@ -151,6 +151,7 @@ export default async function VideoPage({
           poster={video.thumbnailUrl}
           videoId={video.id}
           instructorId={instructor.id}
+          instructorSlug={instructor.slug}
           instructorName={instructorName}
           instructorDiscipline={instructorDiscipline}
           viewerSignedIn={!!viewer}

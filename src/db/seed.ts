@@ -604,6 +604,32 @@ async function main() {
       durationSec: 10,
       url: "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4",
     },
+    {
+      title: "Breath before movement: a 90-second reset",
+      description:
+        "Three slow breaths before you stand up. Do this before any of the other videos here, honestly.",
+      type: "VLOG",
+      visibility: "PUBLIC",
+      durationSec: 10,
+      url: "https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4",
+    },
+    {
+      title: "Why your hips are tighter than you think",
+      description:
+        "Desks do this to everyone. Two stretches that actually reach the muscle that's the problem.",
+      type: "VLOG",
+      visibility: "PUBLIC",
+      durationSec: 10,
+      url: "https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_1MB.mp4",
+    },
+    {
+      title: "Evening Restorative & Yin — recorded class, week 8",
+      description: "Full recording for students who missed the live session at Shanti Studio.",
+      type: "SESSION_RECORDING",
+      visibility: "ENROLLED_ONLY",
+      durationSec: 10,
+      url: "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_2MB.mp4",
+    },
   ];
 
   for (const v of videoSeeds) {
