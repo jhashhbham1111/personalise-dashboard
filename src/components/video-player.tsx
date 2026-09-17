@@ -14,10 +14,11 @@ import { Button, ButtonLink } from "@/components/ui/button";
 /**
  * Class recording / vlog player.
  *
- * After a minute of actual playback (tracked off the video's own currentTime,
- * not a wall-clock timer — a paused video shouldn't nag) it surfaces a
- * like/follow/explore prompt, the same beat short-form video apps use to turn
- * a passive watch into a return visit.
+ * Surfaces a like/follow/explore prompt at the top of the frame once a minute
+ * of actual playback has accumulated (tracked off the video's own
+ * currentTime, not a wall-clock timer — a paused video shouldn't nag), or as
+ * soon as the video ends, whichever comes first — most snippets run well
+ * under a minute, so `ended` is the one that actually fires for them.
  */
 export function VideoPlayer({
   src,
@@ -60,6 +61,14 @@ export function VideoPlayer({
         onTimeUpdate={() => {
           const v = videoRef.current;
           if (!v || promptFired.current || v.currentTime < 60) return;
+          promptFired.current = true;
+          setShowPrompt(true);
+        }}
+        onEnded={() => {
+          // Most seeded clips run well under a minute, so the 60s mark above
+          // never fires for them — the prompt still needs to land once the
+          // viewer has watched the whole thing.
+          if (promptFired.current) return;
           promptFired.current = true;
           setShowPrompt(true);
         }}
@@ -114,7 +123,7 @@ function EngagementPrompt({
     : "/instructors";
 
   return (
-    <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 bg-gradient-to-t from-ink/95 to-ink/70 p-4 text-white sm:flex-row sm:items-center sm:justify-between">
+    <div className="absolute inset-x-0 top-0 flex flex-col gap-3 bg-gradient-to-b from-ink/95 to-ink/70 p-4 text-white sm:flex-row sm:items-center sm:justify-between">
       <button
         type="button"
         onClick={onDismiss}

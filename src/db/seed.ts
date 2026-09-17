@@ -581,8 +581,11 @@ async function main() {
         "A short sequence you can do between meetings without changing clothes. Neck, shoulders, upper back.",
       type: "VLOG",
       visibility: "PUBLIC",
-      durationSec: 312,
-      url: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+      durationSec: 10,
+      // storage.googleapis.com/gtv-videos-bucket (the old Google I/O demo
+      // bucket) started returning 403 on every file — these MDN/test-videos
+      // CC0 clips are the replacement, confirmed reachable.
+      url: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
     },
     {
       title: "How to actually hold chaturanga",
@@ -590,16 +593,16 @@ async function main() {
         "The single most-injured pose in modern yoga, broken down slowly with three ways to scale it.",
       type: "VLOG",
       visibility: "PUBLIC",
-      durationSec: 648,
-      url: "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+      durationSec: 30,
+      url: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/friday.mp4",
     },
     {
       title: "Morning Vinyasa — recorded class, week 12",
       description: "Full 60-minute class recording for students who missed the live session.",
       type: "SESSION_RECORDING",
       visibility: "ENROLLED_ONLY",
-      durationSec: 3612,
-      url: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      durationSec: 10,
+      url: "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4",
     },
   ];
 
