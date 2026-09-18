@@ -48,7 +48,7 @@ export default async function MediaPage() {
         <EmptyState
           icon={<Film className="h-8 w-8" />}
           title="Nothing published yet"
-          description="Paste a link to a video you host anywhere — a public vlog brings new students in, a class recording keeps existing ones going."
+          description="Upload a video from your phone or computer, or paste a link if you already host it somewhere — a public vlog brings new students in, a class recording keeps existing ones going."
           action={
             <VideoDialog offerings={offeringRows} triggerLabel="Add your first video" />
           }
@@ -111,9 +111,11 @@ export default async function MediaPage() {
       )}
 
       <p className="text-xs text-ink-faint">
-        Videos are linked, not uploaded — host them wherever you already do and
-        paste the direct URL. Recordings marked &ldquo;Enrolled students&rdquo;
-        are only ever served to people with an active pass with you.
+        Upload straight from your device — anything over 10 MB is compressed
+        automatically, up to a 50 MB original — or paste a link if you already
+        host a video elsewhere. Recordings marked &ldquo;Enrolled
+        students&rdquo; are only ever served to people with an active pass with
+        you.
       </p>
     </div>
   );
