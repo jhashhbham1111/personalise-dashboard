@@ -184,10 +184,12 @@ export function VideoUpload({
       );
 
       setUrl(result.secure_url);
-      // Cloudinary generates this frame automatically for any video it
-      // hosts; requesting the same public id back as a .jpg is the
-      // documented way to fetch it, not a guess at internal behaviour.
-      setThumbnailUrl(`https://res.cloudinary.com/${params.cloudName}/video/upload/${params.publicId}.jpg`);
+      // Cloudinary generates a poster frame for any video it hosts, reachable
+      // by swapping the extension. Derived from the URL it just returned
+      // rather than rebuilt from cloud name + public id: the returned URL
+      // carries the version and folder segments (/v123…/personalise/videos/)
+      // that a hand-built one silently drops, which 404'd every poster.
+      setThumbnailUrl(result.secure_url.replace(/\.[^./]+$/, ".jpg"));
       setDurationSec(result.duration ? Math.round(result.duration) : null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed.");
