@@ -75,6 +75,16 @@ export const users = sqliteTable(
      * data any more.
      */
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+    /**
+     * When this account ticked "I'm 18 or older, and I agree to the Terms of
+     * Use and Privacy Policy" at signup.
+     *
+     * Enforcement lives in validateAccept() (see signupAction) — this column
+     * is the record of it, not the gate. Kept so a dispute about whether, or
+     * when, someone consented has an answer that survives the session that
+     * created it. Null on accounts created before this column existed.
+     */
+    tosAcceptedAt: integer("tos_accepted_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

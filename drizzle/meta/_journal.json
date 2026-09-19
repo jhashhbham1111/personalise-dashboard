@@ -64,6 +64,13 @@
       "when": 1789579020920,
       "tag": "0008_misty_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1789841390146,
+      "tag": "0009_add_tos_accepted_at",
+      "breakpoints": true
     }
   ]
 }

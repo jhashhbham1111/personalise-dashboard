@@ -184,6 +184,8 @@ export async function signupAction(
       phone: phone || null,
       passwordHash: await hashPassword(password),
       role,
+      // acceptError above already confirmed this was ticked.
+      tosAcceptedAt: new Date(),
     })
     .returning();
 
