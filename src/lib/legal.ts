@@ -19,17 +19,17 @@
  */
 export const LEGAL = {
   /** Registered business name, or the individual's full name if unincorporated. */
-  operatorName: "TODO: registered name of the business or person operating Personalise",
+  operatorName: "Chetan Sharma",
 
   /** A mailbox a real person reads. It appears on every legal page. */
   supportEmail: "nirmata@koshcloud.com",
 
   /** Full postal address, including city, state and PIN code. Razorpay verifies this. */
-  address: "TODO: street, city, state, PIN code, India",
+  address: "Flat No. 524, Sector A6, Pocket 1, Narela, Delhi 110040, India",
 
   /** A number a customer can actually reach, with country code. */
-  phone: "TODO: +91 00000 00000",
+  phone: "+91 95600 84806",
 
   /** The date these documents were last reviewed, e.g. "12 September 2026". */
-  lastUpdated: "28 August 2026",
+  lastUpdated: "19 September 2026",
 };
