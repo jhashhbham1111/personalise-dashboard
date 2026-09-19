@@ -43,7 +43,10 @@ export async function SiteHeader({
   const unread = user ? await unreadNotificationCount(user.id) : 0;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur">
+    <header
+      className="sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6 md:gap-6">
         {/* Phones get a real menu button; the wide nav below takes over at md. */}
         {showPublicNav ? <MobileNav items={NAV} signedIn={!!user} /> : null}
