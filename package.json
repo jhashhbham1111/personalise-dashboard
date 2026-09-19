@@ -17,9 +17,6 @@
     "db:migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
-    "@capacitor/cli": "^8.5.2",
-    "@capacitor/core": "^8.5.2",
-    "@capacitor/ios": "^8.5.2",
     "@libsql/client": "^0.17.4",
     "@radix-ui/react-avatar": "^1.2.6",
     "@radix-ui/react-dialog": "^1.1.23",
