@@ -65,6 +65,21 @@ export function validatePhone(raw: string): string | null {
     : null;
 }
 
+/**
+ * Agreement to the terms, and the declaration of being an adult.
+ *
+ * Checked apart from the field rules above because it is a checkbox rather
+ * than a value: there is no "looks wrong" state, it is either given or it is
+ * not. The message lives here for the same reason as the others — the inline
+ * error and the one that comes back from a submit should be one sentence.
+ */
+export const ACCEPT_ERROR =
+  "Please confirm you're 18 or older and accept the terms.";
+
+export function validateAccept(given: boolean): string | null {
+  return given ? null : ACCEPT_ERROR;
+}
+
 export type SignupValues = {
   name: string;
   email: string;

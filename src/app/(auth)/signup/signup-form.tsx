@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useRef, useState } from "react";
 import { GraduationCap, Sparkles } from "lucide-react";
 
 import { signupAction } from "../actions";
 import { emptyState } from "@/lib/actions";
 import {
+  ACCEPT_ERROR,
   MIN_PASSWORD_LENGTH,
   validateSignup,
   type SignupValues,
@@ -49,6 +51,10 @@ export function SignupForm({
   // over — silently erasing the name of anyone who starts filling the form on
   // a slow connection. Reading the DOM keeps whatever they typed.
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
+  // Consent isn't a text field, so it sits outside `errors`. `null` means
+  // "they have since ticked it", which suppresses a stale server error the
+  // same way `edited` does for the fields above.
+  const [acceptError, setAcceptError] = useState<string | null>();
   // Server errors are dropped for a field the moment it is edited, so
   // "Already registered" stops sitting under an address they have since
   // changed. Tagged with the response it belongs to, so a new response makes
@@ -59,6 +65,8 @@ export function SignupForm({
   }>({ forState: null, fields: {} });
 
   const editedFields = edited.forState === state ? edited.fields : {};
+  const acceptMessage =
+    acceptError === null ? undefined : (acceptError ?? state.fields?.accept);
 
   function readValues(): SignupValues {
     const form = formRef.current;
@@ -109,11 +117,15 @@ export function SignupForm({
       onSubmit={(e) => {
         const found = validateSignup(readValues());
         const bad = FIELDS.filter((f) => found[f]);
-        if (bad.length === 0) return;
+        const accepted = formRef.current
+          ? Boolean(new FormData(formRef.current).get("accept"))
+          : false;
+        if (bad.length === 0 && accepted) return;
         e.preventDefault();
         setErrors(found);
+        if (!accepted) setAcceptError(ACCEPT_ERROR);
         formRef.current
-          ?.querySelector<HTMLInputElement>(`[name="${bad[0]}"]`)
+          ?.querySelector<HTMLInputElement>(`[name="${bad[0] ?? "accept"}"]`)
           ?.focus();
       }}
       className="mt-6 space-y-5"
@@ -210,6 +222,48 @@ export function SignupForm({
           {...fieldProps("password")}
         />
       </Field>
+
+      {/*
+        One checkbox rather than two. The age declaration and agreement to the
+        terms are both affirmed by a single deliberate act, which is what a
+        person actually reads and what most Indian consumer signups do. If the
+        two ever need to be recorded separately, split this and give the server
+        check in ../actions.ts the same treatment.
+      */}
+      <div>
+        <label className="flex items-start gap-2.5 text-sm text-ink-soft">
+          <input
+            type="checkbox"
+            name="accept"
+            value="1"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-line-strong text-brand-600 focus:ring-2 focus:ring-brand-500"
+            aria-invalid={acceptMessage ? true : undefined}
+            onChange={() => setAcceptError(null)}
+          />
+          <span>
+            I&rsquo;m 18 or older, and I agree to the{" "}
+            <Link
+              href="/legal/terms"
+              target="_blank"
+              className="font-medium text-brand-700 underline underline-offset-2"
+            >
+              Terms of Use
+            </Link>{" "}
+            and{" "}
+            <Link
+              href="/legal/privacy"
+              target="_blank"
+              className="font-medium text-brand-700 underline underline-offset-2"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </span>
+        </label>
+        {acceptMessage ? (
+          <p className="mt-1.5 text-sm text-danger-700">{acceptMessage}</p>
+        ) : null}
+      </div>
 
       <SubmitButton block size="lg" pendingText="Creating your account…">
         {intent === "teach" ? "Start teaching" : "Start learning"}

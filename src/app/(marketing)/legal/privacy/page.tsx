@@ -331,6 +331,38 @@ export default function PrivacyPage() {
         </p>
       </LegalSection>
 
+      <LegalSection id="breach" title="If your data is ever exposed">
+        <p>
+          A personal data breach means your information was seen, changed or
+          lost when it should not have been. If one happens and your data is
+          caught up in it, we tell you — by email, to the address on your
+          account. We do not wait until the investigation is finished to say
+          so.
+        </p>
+        <LegalList>
+          <li>
+            <Point>What we tell you</Point> — what happened, which of your
+            data was involved, what it could mean for you, what we have already
+            done about it, and anything you should do yourself.
+          </li>
+          <li>
+            <Point>How quickly</Point> — as soon as we know enough for the
+            notice to be accurate, and a fuller account within 72 hours,
+            including the cause and what has been changed so it does not happen
+            again.
+          </li>
+          <li>
+            <Point>Who else is told</Point> — the Data Protection Board of
+            India, on the same timetable, once the breach provisions of the
+            Digital Personal Data Protection Act are in force.
+          </li>
+          <li>
+            <Point>What we keep</Point> — a written record of every breach,
+            what caused it and how it was dealt with.
+          </li>
+        </LegalList>
+      </LegalSection>
+
       <LegalSection id="children" title="Children">
         <p>
           An account here is for adults. If a child is learning with an
@@ -354,14 +386,17 @@ export default function PrivacyPage() {
         <p>
           Under India&rsquo;s Information Technology (Reasonable Security
           Practices and Procedures and Sensitive Personal Data or Information)
-          Rules, 2011, you can raise a grievance about how your data is handled
-          with:
+          Rules, 2011 and the Information Technology (Intermediary Guidelines
+          and Digital Media Ethics Code) Rules, 2021, you can raise a grievance
+          about how your data is handled, or about anything published on
+          Personalise, with our Grievance Officer:
         </p>
         <LegalList>
           <li>
             <Point>
               <Fill value={LEGAL.operatorName} label="Operator name" />
-            </Point>
+            </Point>{" "}
+            — Grievance Officer
           </li>
           <li>
             <SupportEmail />

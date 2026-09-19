@@ -18,7 +18,11 @@ import {
   requestPasswordReset,
 } from "@/lib/password-reset";
 import { checkSignupEmail, looksLikeEmail } from "@/lib/email-address";
-import { normalisePhone, validateSignup } from "@/lib/signup-validation";
+import {
+  normalisePhone,
+  validateAccept,
+  validateSignup,
+} from "@/lib/signup-validation";
 import { issueVerificationCode, verifyEmailCode } from "@/lib/email-verification";
 import { clamp, fail, ok, str, type ActionState } from "@/lib/actions";
 import { clearRateLimit, clientIp, rateLimit } from "@/lib/rate-limit";
@@ -142,6 +146,14 @@ export async function signupAction(
     password,
     phone,
   });
+
+  // Consent and the 18+ declaration. The checkbox in the form is a courtesy;
+  // this is the check that decides, because a POST straight to the action can
+  // simply omit the field. Folded into the same `fields` map so someone who
+  // gets two things wrong is told about both at once.
+  const acceptError = validateAccept(str(form, "accept") === "1");
+  if (acceptError) fields.accept = acceptError;
+
   if (Object.keys(fields).length) return fail("Check the highlighted fields.", fields);
 
   // Signup answers "does this email have an account?" truthfully, which makes
@@ -172,6 +184,8 @@ export async function signupAction(
       phone: phone || null,
       passwordHash: await hashPassword(password),
       role,
+      // acceptError above already confirmed this was ticked.
+      tosAcceptedAt: new Date(),
     })
     .returning();
 
