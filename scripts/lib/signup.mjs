@@ -113,6 +113,7 @@ export async function signUpAndVerify(
   await page.fill('input[name="email"]', email);
   if (phone) await page.fill('input[name="phone"]', phone);
   await page.fill('input[name="password"]', password);
+  await page.check('input[name="accept"]');
   await page.click('button[type="submit"]');
 
   await page.waitForURL("**/verify-email**", { timeout: 20000 });

@@ -96,6 +96,7 @@ try {
   await page.fill('input[name="name"]', "Smoke Tester");
   await page.fill('input[name="email"]', email);
   await page.fill('input[name="password"]', "password123");
+  await page.check('input[name="accept"]');
   await page.click('button[type="submit"]');
 
   // The account exists but is blocked until the emailed code is entered.

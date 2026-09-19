@@ -95,6 +95,7 @@ async function signup(page, { name, email, password = "password123" }) {
   await page.getByLabel("Full name").fill(name);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
+  await page.check('input[name="accept"]');
   await page.getByRole("button", { name: /start learning/i }).click();
 
   /*

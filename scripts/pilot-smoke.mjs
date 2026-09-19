@@ -52,6 +52,7 @@ try {
   await student.fill('input[name="name"]', "Pilot Student");
   await student.fill('input[name="email"]', studentEmail);
   await student.fill('input[name="password"]', "pilotpass123");
+  await student.check('input[name="accept"]');
   await student.click('button[type="submit"]');
   await student.waitForURL((u) => !u.pathname.startsWith("/signup"), { timeout: 20000 });
 
